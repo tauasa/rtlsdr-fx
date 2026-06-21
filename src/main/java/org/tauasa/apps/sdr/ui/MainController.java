@@ -1,15 +1,24 @@
 package org.tauasa.apps.sdr.ui;
 
 import javafx.animation.AnimationTimer;
+import javafx.application.HostServices;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
@@ -17,8 +26,12 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -36,6 +49,9 @@ public final class MainController {
     private final SdrService sdr;
     private final SdrProperties props;
     private final AtomicReference<SpectrumFrame> latest = new AtomicReference<>();
+
+    private Stage stage;
+    private HostServices hostServices;
 
     private SpectrumView spectrumView;
     private WaterfallView waterfallView;
@@ -62,7 +78,8 @@ public final class MainController {
 
     @EventListener
     public void onStageReady(StageReadyEvent event) {
-        Stage stage = event.getStage();
+        this.stage = event.getStage();
+        this.hostServices = event.getHostServices();
 
         spectrumView = new SpectrumView(props.getMinDb(), props.getMaxDb());
         waterfallView = new WaterfallView(sdr.fftSize(), props.getWaterfallHeight(),
@@ -81,7 +98,7 @@ public final class MainController {
 
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color: #0b0e14;");
-        root.setTop(buildToolbar());
+        root.setTop(new VBox(buildMenuBar(), buildToolbar()));
         root.setCenter(split);
         root.setBottom(buildStatusBar());
 
@@ -94,6 +111,29 @@ public final class MainController {
         stage.show();
 
         startRenderLoop();
+    }
+
+    private MenuBar buildMenuBar() {
+        MenuItem exit = new MenuItem("Exit");
+        exit.setOnAction(e -> {
+            sdr.stop();
+            Platform.exit();
+        });
+        Menu file = new Menu("File");
+        file.getItems().add(exit);
+
+        MenuItem settings = new MenuItem("Settings\u2026");
+        settings.setOnAction(e -> showSettingsDialog());
+        Menu edit = new Menu("Edit");
+        edit.getItems().add(settings);
+
+        MenuItem about = new MenuItem("About\u2026");
+        about.setOnAction(e -> showAboutDialog());
+        Menu help = new Menu("Help");
+        help.getItems().add(about);
+
+        MenuBar bar = new MenuBar(file, edit, help);
+        return bar;
     }
 
     private Node buildToolbar() {
@@ -254,5 +294,144 @@ public final class MainController {
         }
         statusLabel.setText(String.format("%s  |  centre %.4f MHz  |  %.3f Msps  |  FFT %d  |  %.0f fps",
                 sdr.describe(), f.centerFrequency() / 1e6, f.sampleRate() / 1e6, f.fftSize(), displayFps));
+    }
+
+    // ---- Help > About ----
+
+    private void showAboutDialog() {
+        Stage dialog = newModalStage("About rtlsdr-fx");
+
+        Label name = new Label("rtlsdr-fx");
+        name.setFont(Font.font("System", FontWeight.BOLD, 22));
+        name.setTextFill(Color.web("#e6ecf5"));
+
+        Label tagline = new Label("Lightweight RTL-SDR Receiver \u00b7 Spring Boot + JavaFX");
+        tagline.setTextFill(Color.web("#9aa3b5"));
+
+        Label version = new Label("Version 1.0.0");
+        version.setTextFill(Color.web("#7f8aa0"));
+
+        Label copyright = new Label("Copyright \u00a9 2026 Tauasa Timoteo");
+        copyright.setTextFill(Color.web("#c7cedb"));
+
+        Label license = new Label("Released under the MIT License.");
+        license.setTextFill(Color.web("#7f8aa0"));
+
+        String repo = "https://github.com/tauasa/rtlsdr-fx";
+        Hyperlink link = new Hyperlink(repo);
+        link.setOnAction(e -> {
+            if (hostServices != null) {
+                hostServices.showDocument(repo);
+            }
+        });
+
+        Button close = new Button("Close");
+        close.setOnAction(e -> dialog.close());
+        HBox buttons = new HBox(close);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox content = new VBox(8, name, tagline, version,
+                spacer(6), copyright, license, link, spacer(6), buttons);
+        content.setPadding(new Insets(18));
+        content.setStyle("-fx-background-color: #0b0e14;");
+
+        dialog.setScene(new Scene(content, 420, 270));
+        dialog.showAndWait();
+    }
+
+    // ---- Edit > Settings ----
+
+    private void showSettingsDialog() {
+        Stage dialog = newModalStage("Settings");
+
+        Label header = new Label("Display Colours");
+        header.setFont(Font.font("System", FontWeight.BOLD, 14));
+        header.setTextFill(Color.web("#e6ecf5"));
+
+        // Spectrum colours
+        ColorPicker trace = new ColorPicker(spectrumView.getTraceColor());
+        trace.valueProperty().addListener((o, a, b) -> spectrumView.setTraceColor(b));
+
+        ColorPicker peak = new ColorPicker(spectrumView.getPeakColor());
+        peak.valueProperty().addListener((o, a, b) -> spectrumView.setPeakColor(b));
+
+        // Waterfall palette + live preview
+        ComboBox<Palette> palette = new ComboBox<>();
+        palette.getItems().addAll(Palette.all());
+        palette.getSelectionModel().select(waterfallView.getPalette());
+        Canvas preview = new Canvas(220, 16);
+        drawPalettePreview(preview, waterfallView.getPalette());
+        palette.setOnAction(e -> {
+            Palette p = palette.getValue();
+            if (p != null) {
+                waterfallView.setPalette(p);
+                drawPalettePreview(preview, p);
+            }
+        });
+
+        VBox waterfallBox = new VBox(4, palette, preview);
+
+        Button reset = new Button("Reset to defaults");
+        reset.setOnAction(e -> {
+            trace.setValue(Color.rgb(80, 200, 255));
+            peak.setValue(Color.rgb(95, 105, 125));
+            palette.getSelectionModel().select(Palette.CLASSIC);
+            waterfallView.setPalette(Palette.CLASSIC);
+            drawPalettePreview(preview, Palette.CLASSIC);
+        });
+        Button close = new Button("Close");
+        close.setOnAction(e -> dialog.close());
+        HBox buttons = new HBox(8, reset, close);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox content = new VBox(10,
+                header,
+                settingRow("Spectrum trace", trace),
+                settingRow("Spectrum peak hold", peak),
+                settingRow("Waterfall palette", waterfallBox),
+                spacer(4), buttons);
+        content.setPadding(new Insets(18));
+        content.setStyle("-fx-background-color: #0b0e14;");
+
+        dialog.setScene(new Scene(content, 420, 300));
+        dialog.showAndWait();
+    }
+
+    private HBox settingRow(String label, Node control) {
+        Label l = new Label(label);
+        l.setTextFill(Color.web("#c7cedb"));
+        l.setPrefWidth(150);
+        HBox row = new HBox(10, l, control);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private void drawPalettePreview(Canvas c, Palette p) {
+        GraphicsContext g = c.getGraphicsContext2D();
+        double w = c.getWidth();
+        double h = c.getHeight();
+        for (int x = 0; x < w; x++) {
+            int argb = p.color(x / (w - 1));
+            int r = (argb >> 16) & 0xFF;
+            int gg = (argb >> 8) & 0xFF;
+            int b = argb & 0xFF;
+            g.setFill(Color.rgb(r, gg, b));
+            g.fillRect(x, 0, 1, h);
+        }
+    }
+
+    private Stage newModalStage(String title) {
+        Stage dialog = new Stage();
+        dialog.initOwner(stage);
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle(title);
+        dialog.setResizable(false);
+        return dialog;
+    }
+
+    private Region spacer(double height) {
+        Region r = new Region();
+        r.setMinHeight(height);
+        return r;
     }
 }

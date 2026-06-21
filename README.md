@@ -1,13 +1,10 @@
 # rtlsdr-fx
 
-A lightweight RTL-SDR receiver with live **spectrum** (waveform) and **waterfall**
-displays — a small, self-contained alternative to SDR++ built on **Spring Boot + JavaFX**.
+A lightweight RTL-SDR receiver with live **spectrum** (waveform) and **waterfall** displays — a small, self-contained alternative to SDR++ built on **Spring Boot + JavaFX**.
 
-It connects to a standard `rtl_tcp` server over TCP (no native libraries / no JNA),
-and also ships with a built-in **simulated source** so you can run and explore the
-whole UI with **no hardware at all**.
+It connects to a standard `rtl_tcp` server over TCP (no native libraries / no JNA), and also ships with a built-in **simulated source** so you can run and explore the whole UI with **no hardware at all**.
 
-![spectrum on top, waterfall below]
+![insert screenshot]
 
 ---
 
@@ -20,6 +17,11 @@ whole UI with **no hardware at all**.
   - **RTL-TCP** — talks the `rtl_tcp` wire protocol to real hardware.
   - **Simulated** — synthetic IQ (two steady tones, one sweeping AM tone, plus complex Gaussian noise) for hardware-free demos and development.
 - **Live tuning controls** — center frequency, sample rate, manual gain slider, and automatic gain.
+- **Menu bar** — `File ▸ Exit`, `Edit ▸ Settings`, `Help ▸ About`.
+  - **Settings** opens a modal dialog to choose the **spectrum trace** and
+    **peak-hold** colors and pick the **waterfall palette** (Classic, Inferno,
+    Ice, Green/CRT, Grayscale), with a live gradient preview. Changes apply immediately.
+  - **About** shows the app name, version, copyright, MIT license, and a link to the GitHub repository.
 - **Pure-Java DSP** — radix-2 FFT, Hann window, fftshifted power-in-dB. No external DSP dependencies.
 
 ---
@@ -41,9 +43,7 @@ whole UI with **no hardware at all**.
 mvn javafx:run
 ```
 
-The app launches already configured for the **Simulated** source. Click **Connect**
-and you'll immediately see two stationary tones, a slow AM sweep moving across the
-band, and a noise floor underneath. This is the fastest way to see everything working.
+The app launches already configured for the **Simulated** source. Click **Connect** and you'll immediately see two stationary tones, a slow AM sweep moving across the band, and a noise floor underneath. This is the fastest way to see everything working.
 
 A convenience wrapper is also included:
 
@@ -65,18 +65,15 @@ A convenience wrapper is also included:
    - Enter a **Frequency** in MHz and pick a **Sample rate**
    - Click **Connect**
 
-   Tune live with the frequency field + **Tune**, adjust the **Gain** slider, or
-   enable **Auto gain**.
+   Tune live with the frequency field + **Tune**, adjust the **Gain** slider, or enable **Auto gain**.
 
-> If `rtl_tcp` runs on another machine, point **Host** at that machine's IP and make
-> sure it was started with `-a 0.0.0.0`.
+> If `rtl_tcp` runs on another machine, point **Host** at that machine's IP and make sure it was started with `-a 0.0.0.0`.
 
 ---
 
 ## How it's wired (architecture)
 
-Spring Boot owns the **service/DI layer**; JavaFX owns the **GUI**. They're bridged
-with the well-known Josh Long pattern so a single process runs both:
+Spring Boot owns the **service/DI layer**; JavaFX owns the **GUI**. They're bridged with the well-known Josh Long pattern so a single process runs both:
 
 ```
 SdrApplication.main
@@ -112,7 +109,7 @@ Key packages under `org.tauasa.apps.sdr`:
 | `source`    | `SignalSource` interface, `RtlTcpSource`, `SimulatedSource`.          |
 | `rtl`       | `rtl_tcp` protocol bits — `RtlCommand` opcodes, `TunerType`.          |
 | `service`   | `SdrService` orchestration, `SpectrumFrame` data record.             |
-| `ui`        | `MainController`, `SpectrumView`, `WaterfallView`, `ColorMap`.        |
+| `ui`        | `MainController`, `SpectrumView`, `WaterfallView`, `Palette`.         |
 | `config`    | `SdrProperties` (`@ConfigurationProperties("sdr")`).                  |
 
 UI is built **programmatically** (no FXML) to keep the classpath simple, which
@@ -122,8 +119,7 @@ matters when Spring Boot and JavaFX share one classpath (no `module-info.java`).
 
 ## Configuration
 
-Defaults live in `src/main/resources/application.yml` under the `sdr.*` prefix and
-map to `SdrProperties`:
+Defaults live in `src/main/resources/application.yml` under the `sdr.*` prefix and map to `SdrProperties`:
 
 ```yaml
 sdr:

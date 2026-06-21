@@ -1,8 +1,5 @@
 package org.tauasa.apps.sdr.ui;
 
-import java.nio.IntBuffer;
-import java.util.Arrays;
-
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelFormat;
@@ -11,6 +8,9 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.WritablePixelFormat;
 import javafx.scene.paint.Color;
+
+import java.nio.IntBuffer;
+import java.util.Arrays;
 
 /**
  * Scrolling waterfall. New rows enter at the top; the existing image is shifted
@@ -27,6 +27,7 @@ public final class WaterfallView {
     private final int height;
     private double minDb;
     private double maxDb;
+    private Palette palette = Palette.CLASSIC;
     private final WritablePixelFormat<IntBuffer> fmt = PixelFormat.getIntArgbInstance();
 
     public WaterfallView(int fftSize, int height, double minDb, double maxDb) {
@@ -52,6 +53,16 @@ public final class WaterfallView {
         this.maxDb = maxDb;
     }
 
+    public Palette getPalette() {
+        return palette;
+    }
+
+    public void setPalette(Palette palette) {
+        if (palette != null) {
+            this.palette = palette;
+        }
+    }
+
     /** Adds one spectrum row to the top of the waterfall. Call on the FX thread. */
     public void pushRow(float[] power) {
         if (power == null || power.length != width) {
@@ -59,7 +70,7 @@ public final class WaterfallView {
         }
         double span = maxDb - minDb;
         for (int i = 0; i < width; i++) {
-            rowBuf[i] = ColorMap.color((power[i] - minDb) / span);
+            rowBuf[i] = palette.color((power[i] - minDb) / span);
         }
         PixelReader pr = img.getPixelReader();
         PixelWriter pw = img.getPixelWriter();

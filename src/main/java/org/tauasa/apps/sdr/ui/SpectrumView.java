@@ -15,6 +15,10 @@ public final class SpectrumView {
     private double minDb;
     private double maxDb;
 
+    private Color traceColor = Color.rgb(80, 200, 255);
+    private Color fillColor = Color.rgb(80, 200, 255, 0.25);
+    private Color peakColor = Color.rgb(95, 105, 125);
+
     public SpectrumView(double minDb, double maxDb) {
         this.minDb = minDb;
         this.maxDb = maxDb;
@@ -27,6 +31,28 @@ public final class SpectrumView {
     public void setRange(double minDb, double maxDb) {
         this.minDb = minDb;
         this.maxDb = maxDb;
+    }
+
+    public Color getTraceColor() {
+        return traceColor;
+    }
+
+    /** Sets the live-trace colour; the translucent fill under the curve follows it. */
+    public void setTraceColor(Color c) {
+        if (c != null) {
+            this.traceColor = c;
+            this.fillColor = Color.color(c.getRed(), c.getGreen(), c.getBlue(), 0.25);
+        }
+    }
+
+    public Color getPeakColor() {
+        return peakColor;
+    }
+
+    public void setPeakColor(Color c) {
+        if (c != null) {
+            this.peakColor = c;
+        }
     }
 
     public void render(float[] power, long centerFreq, int sampleRate) {
@@ -72,7 +98,7 @@ public final class SpectrumView {
         for (int i = 0; i < n; i++) {
             peak[i] = Math.max(peak[i] - 0.25f, power[i]);
         }
-        g.setStroke(Color.rgb(95, 105, 125));
+        g.setStroke(peakColor);
         g.setLineWidth(1);
         g.beginPath();
         for (int i = 0; i < n; i++) {
@@ -94,10 +120,10 @@ public final class SpectrumView {
         }
         g.lineTo(w, h);
         g.closePath();
-        g.setFill(Color.rgb(40, 120, 170, 0.25));
+        g.setFill(fillColor);
         g.fill();
 
-        g.setStroke(Color.rgb(80, 200, 255));
+        g.setStroke(traceColor);
         g.setLineWidth(1.3);
         g.beginPath();
         for (int i = 0; i < n; i++) {

@@ -27,7 +27,7 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void start(Stage stage) {
-        context.publishEvent(new StageReadyEvent(stage));
+        context.publishEvent(new StageReadyEvent(stage, getHostServices()));
     }
 
     @Override
