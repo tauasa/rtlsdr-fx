@@ -1,0 +1,20 @@
+sdr:
+  host: 127.0.0.1
+  port: 1234
+  fft-size: 2048
+  sample-rate: 2400000
+  center-frequency: 100000000   # 100 MHz
+  auto-gain: true
+  gain-tenths-db: 0
+  target-fps: 50
+  waterfall-height: 320
+  min-db: -100
+  max-db: 0
+
+spring:
+  main:
+    banner-mode: "off"
+
+logging:
+  level:
+    root: WARN
