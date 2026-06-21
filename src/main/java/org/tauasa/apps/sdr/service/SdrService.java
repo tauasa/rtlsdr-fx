@@ -1,12 +1,15 @@
 package org.tauasa.apps.sdr.service;
 
 import org.springframework.stereotype.Service;
+import org.tauasa.apps.sdr.audio.AudioPlayer;
 import org.tauasa.apps.sdr.config.SdrProperties;
+import org.tauasa.apps.sdr.dsp.Demodulator;
 import org.tauasa.apps.sdr.dsp.SpectrumProcessor;
 import org.tauasa.apps.sdr.source.RtlTcpSource;
 import org.tauasa.apps.sdr.source.SignalSource;
 import org.tauasa.apps.sdr.source.SimulatedSource;
 
+import jakarta.annotation.PreDestroy;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -23,6 +26,10 @@ public class SdrService {
     private final SpectrumProcessor processor;
     private final AtomicLong seq = new AtomicLong();
 
+    private final Demodulator demod = new Demodulator();
+    private final AudioPlayer audio = new AudioPlayer();
+    private volatile boolean audioEnabled;
+
     private volatile SignalSource source;
     private volatile Consumer<SpectrumFrame> sink = frame -> { };
 
@@ -37,6 +44,17 @@ public class SdrService {
         this.centerFreq = props.getCenterFrequency();
         this.sampleRate = props.getSampleRate();
         this.minFramePeriodNs = 1_000_000_000L / Math.max(1, props.getTargetFps());
+        this.demod.setMode(parseMode(props.getDemodMode()));
+        this.demod.configure(sampleRate);
+        this.audio.setVolume((float) props.getVolume());
+    }
+
+    private static Demodulator.Mode parseMode(String name) {
+        try {
+            return Demodulator.Mode.valueOf(name.trim().toUpperCase());
+        } catch (Exception e) {
+            return Demodulator.Mode.WFM;
+        }
     }
 
     public int fftSize() {
@@ -84,6 +102,15 @@ public class SdrService {
     }
 
     private void onBlock(float[] iq) {
+        // Audio needs every sample for continuity, so demodulate before the
+        // display-pacing gate below (which intentionally drops frames).
+        if (audioEnabled) {
+            float[] a = demod.process(iq, iq.length / 2);
+            if (a.length > 0) {
+                audio.submit(a, a.length);
+            }
+        }
+
         long now = System.nanoTime();
         if (now - lastFrameNs < minFramePeriodNs) {
             return; // pace the display; the source keeps draining its socket
@@ -111,6 +138,7 @@ public class SdrService {
 
     public void setSampleRate(int sps) {
         this.sampleRate = sps;
+        demod.configure(sps);
         SignalSource s = source;
         if (s != null) {
             s.setSampleRate(sps);
@@ -129,5 +157,45 @@ public class SdrService {
         if (s != null) {
             s.setAutoGain(auto);
         }
+    }
+
+    // ---- audio ----
+
+    public synchronized void setAudioEnabled(boolean on) {
+        if (on) {
+            demod.configure(sampleRate); // match the current device rate
+            try {
+                audio.start();
+                audioEnabled = true;
+            } catch (Exception e) {
+                audioEnabled = false;
+                throw new RuntimeException("Audio output unavailable: " + e.getMessage(), e);
+            }
+        } else {
+            audioEnabled = false;
+            audio.stop();
+        }
+    }
+
+    public boolean isAudioEnabled() {
+        return audioEnabled;
+    }
+
+    public void setVolume(double volume) {
+        audio.setVolume((float) volume);
+    }
+
+    public void setDemodMode(Demodulator.Mode mode) {
+        demod.setMode(mode);
+    }
+
+    public Demodulator.Mode getDemodMode() {
+        return demod.getMode();
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        stop();
+        audio.stop();
     }
 }

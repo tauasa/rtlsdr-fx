@@ -19,6 +19,9 @@ public class SdrProperties {
     private int waterfallHeight = 320;
     private double minDb = -100;
     private double maxDb = 0;
+    private boolean audioEnabled = false;
+    private String demodMode = "WFM"; // WFM | NFM | AM
+    private double volume = 0.6;
 
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }
@@ -52,4 +55,13 @@ public class SdrProperties {
 
     public double getMaxDb() { return maxDb; }
     public void setMaxDb(double maxDb) { this.maxDb = maxDb; }
+
+    public boolean isAudioEnabled() { return audioEnabled; }
+    public void setAudioEnabled(boolean audioEnabled) { this.audioEnabled = audioEnabled; }
+
+    public String getDemodMode() { return demodMode; }
+    public void setDemodMode(String demodMode) { this.demodMode = demodMode; }
+
+    public double getVolume() { return volume; }
+    public void setVolume(double volume) { this.volume = volume; }
 }
