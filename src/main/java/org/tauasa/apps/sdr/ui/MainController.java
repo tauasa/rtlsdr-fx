@@ -6,6 +6,7 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -24,6 +25,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
@@ -37,6 +39,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.tauasa.apps.sdr.StageReadyEvent;
 import org.tauasa.apps.sdr.config.SdrProperties;
+import org.tauasa.apps.sdr.dsp.Demodulator;
 import org.tauasa.apps.sdr.service.SdrService;
 import org.tauasa.apps.sdr.service.SpectrumFrame;
 
@@ -70,6 +73,9 @@ public final class MainController {
     private ComboBox<Integer> rateBox;
     private CheckBox autoGain;
     private Slider gainSlider;
+    private ComboBox<Demodulator.Mode> modeBox;
+    private ToggleButton audioBtn;
+    private Slider volumeSlider;
 
     public MainController(SdrService sdr, SdrProperties props) {
         this.sdr = sdr;
@@ -176,9 +182,26 @@ public final class MainController {
         Button tune = new Button("Tune");
         tune.setOnAction(e -> applyFrequency());
 
+        modeBox = new ComboBox<>();
+        modeBox.getItems().addAll(Demodulator.Mode.values());
+        modeBox.getSelectionModel().select(sdr.getDemodMode());
+        modeBox.setOnAction(e -> {
+            Demodulator.Mode m = modeBox.getValue();
+            if (m != null) {
+                sdr.setDemodMode(m);
+            }
+        });
+
+        audioBtn = new ToggleButton("Audio");
+        audioBtn.setOnAction(e -> toggleAudio());
+
+        volumeSlider = new Slider(0, 1, props.getVolume());
+        volumeSlider.setPrefWidth(90);
+        volumeSlider.valueProperty().addListener((o, a, b) -> sdr.setVolume(b.doubleValue()));
+
         connectBtn.setOnAction(e -> toggleConnect());
 
-        HBox bar = new HBox(8,
+        FlowPane bar = new FlowPane(8, 8,
                 labeled("Source", sourceBox),
                 labeled("Host", hostField),
                 labeled("Port", portField),
@@ -186,9 +209,13 @@ public final class MainController {
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
+                labeled("Mode", modeBox),
+                bottomAlign(audioBtn),
+                labeled("Vol", volumeSlider),
                 bottomAlign(connectBtn));
         bar.setPadding(new Insets(8));
         bar.setAlignment(Pos.BOTTOM_LEFT);
+        bar.setRowValignment(VPos.BOTTOM);
         bar.setStyle("-fx-background-color: #11151f; -fx-border-color: #1d2230; -fx-border-width: 0 0 1 0;");
         return bar;
     }
@@ -258,6 +285,21 @@ public final class MainController {
         sourceBox.setDisable(connected);
         hostField.setDisable(connected);
         portField.setDisable(connected);
+    }
+
+    private void toggleAudio() {
+        try {
+            sdr.setAudioEnabled(audioBtn.isSelected());
+            if (audioBtn.isSelected()) {
+                statusLabel.setText("Audio on \u2014 " + sdr.getDemodMode()
+                        + ". Tune to a station and Connect to hear it.");
+            } else {
+                statusLabel.setText("Audio off.");
+            }
+        } catch (Exception ex) {
+            audioBtn.setSelected(false);
+            statusLabel.setText("Audio error: " + ex.getMessage());
+        }
     }
 
     private void startRenderLoop() {

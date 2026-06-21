@@ -10,6 +10,9 @@ sdr:
   waterfall-height: 320
   min-db: -100
   max-db: 0
+  audio-enabled: false
+  demod-mode: WFM        # WFM | NFM | AM
+  volume: 0.6
 
 spring:
   main:
