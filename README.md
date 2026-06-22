@@ -15,18 +15,12 @@ It connects to a standard `rtl_tcp` server over TCP (no native libraries / no JN
   black→blue→cyan→green→yellow→red→white color map.
 - **Two signal sources**, switchable at runtime:
   - **RTL-TCP** — talks the `rtl_tcp` wire protocol to real hardware.
-  - **Simulated** — synthetic IQ (two steady tones, one sweeping AM tone, plus
-    complex Gaussian noise) for hardware-free demos and development.
-- **Live tuning controls** — center frequency, sample rate, manual gain slider,
-  and automatic gain.
+  - **Simulated** — synthetic IQ (two steady tones, one sweeping AM tone, plus complex Gaussian noise) for hardware-free demos and development.
+- **Live tuning controls** — center frequency, sample rate, manual gain slider, and automatic gain.
 - **Menu bar** — `File ▸ Exit`, `Edit ▸ Settings`, `Help ▸ About`.
-  - **Settings** opens a modal dialog to choose the **spectrum trace** and
-    **peak-hold** colors and pick the **waterfall palette** (Classic, Inferno,
-    Ice, Green/CRT, Grayscale), with a live gradient preview. Changes apply
-    immediately.
+  - **Settings** opens a modal dialog to choose the **spectrum trace** and **peak-hold** colors and pick the **waterfall palette** (Classic, Inferno, Ice, Green/CRT, Grayscale), with a live gradient preview. Changes apply immediately.
   - **About** shows the app name, version, copyright, MIT license, and a link to the GitHub repository.
-- **Audio playback** — demodulates the tuned signal and plays it through your
-  speakers, with selectable mode (**WFM** for broadcast FM, **NFM** for narrowband FM, **AM**), an on/off toggle, and a volume slider. The output is resampled to a fixed 48 kHz regardless of the device sample rate.
+- **Audio playback** — demodulates the tuned signal and plays it through your speakers, with selectable mode (**WFM** for broadcast FM, **NFM** for narrowband FM, **AM**), an on/off toggle, and a volume slider. The output is resampled to a fixed 48 kHz regardless of the device sample rate.
 - **Pure-Java DSP** — radix-2 FFT, Hann window, fftshifted power-in-dB. No external DSP dependencies.
 
 ---
@@ -78,8 +72,7 @@ A convenience wrapper is also included:
 
 The signal at the **center** of the captured band is demodulated to audio (i.e. tune the dongle directly onto the station you want to hear):
 
-1. Pick a **Mode** — `WFM` for broadcast FM (the default; the 100 MHz startup
-   frequency is in the FM band), `NFM` for narrowband FM, or `AM`.
+1. Pick a **Mode** — `WFM` for broadcast FM (the default; the 100 MHz startup frequency is in the FM band), `NFM` for narrowband FM, or `AM`.
 2. Click the **Audio** toggle to start playback, and use the **Vol** slider to set the level.
 3. Tune to a station and **Connect**. For WFM, set the frequency to a strong local broadcaster (e.g. 88–108 MHz) and you should hear it.
 
@@ -130,8 +123,7 @@ Key packages under `org.tauasa.apps.sdr`:
 | `ui`        | `MainController`, `SpectrumView`, `WaterfallView`, `Palette`.         |
 | `config`    | `SdrProperties` (`@ConfigurationProperties("sdr")`).                  |
 
-UI is built **programmatically** (no FXML) to keep the classpath simple, which
-matters when Spring Boot and JavaFX share one classpath (no `module-info.java`).
+UI is built **programmatically** (no FXML) to keep the classpath simple, which matters when Spring Boot and JavaFX share one classpath (no `module-info.java`).
 
 ---
 
@@ -157,8 +149,7 @@ sdr:
   volume: 0.6
 ```
 
-Everything here is also adjustable live from the toolbar; these are just the
-startup values.
+Everything here is also adjustable live from the toolbar; these are just the startup values.
 
 ---
 

@@ -1,5 +1,15 @@
 package org.tauasa.apps.sdr.ui;
 
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+import org.tauasa.apps.sdr.StageReadyEvent;
+import org.tauasa.apps.sdr.config.SdrProperties;
+import org.tauasa.apps.sdr.dsp.Demodulator;
+import org.tauasa.apps.sdr.service.SdrService;
+import org.tauasa.apps.sdr.service.SpectrumFrame;
+
 import javafx.animation.AnimationTimer;
 import javafx.application.HostServices;
 import javafx.application.Platform;
@@ -35,15 +45,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-import org.tauasa.apps.sdr.StageReadyEvent;
-import org.tauasa.apps.sdr.config.SdrProperties;
-import org.tauasa.apps.sdr.dsp.Demodulator;
-import org.tauasa.apps.sdr.service.SdrService;
-import org.tauasa.apps.sdr.service.SpectrumFrame;
-
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Builds and drives the JavaFX UI. A Spring bean that reacts to the stage event. */
 @Component
@@ -386,7 +387,7 @@ public final class MainController {
     private void showSettingsDialog() {
         Stage dialog = newModalStage("Settings");
 
-        Label header = new Label("Display Colours");
+        Label header = new Label("Display Colors");
         header.setFont(Font.font("System", FontWeight.BOLD, 14));
         header.setTextFill(Color.web("#e6ecf5"));
 
@@ -416,10 +417,10 @@ public final class MainController {
         Button reset = new Button("Reset to defaults");
         reset.setOnAction(e -> {
             trace.setValue(Color.rgb(80, 200, 255));
-            peak.setValue(Color.rgb(95, 105, 125));
-            palette.getSelectionModel().select(Palette.CLASSIC);
-            waterfallView.setPalette(Palette.CLASSIC);
-            drawPalettePreview(preview, Palette.CLASSIC);
+            peak.setValue(Color.rgb(230, 234, 18));
+            palette.getSelectionModel().select(Palette.ICE);
+            waterfallView.setPalette(Palette.ICE);
+            drawPalettePreview(preview, Palette.ICE);
         });
         Button close = new Button("Close");
         close.setOnAction(e -> dialog.close());

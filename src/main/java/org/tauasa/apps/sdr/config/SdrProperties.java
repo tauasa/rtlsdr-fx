@@ -12,14 +12,14 @@ public class SdrProperties {
     private int port = 1234;
     private int fftSize = 2048;
     private int sampleRate = 2_400_000;
-    private long centerFrequency = 100_000_000L; // 100 MHz (FM band)
+    private long centerFrequency = 90_900_000;// 100_000_000L; // 100 MHz (FM band)
     private int gainTenthsDb = 0;
     private boolean autoGain = true;
     private int targetFps = 50;
-    private int waterfallHeight = 320;
+    private int waterfallHeight = 400;//320;
     private double minDb = -100;
     private double maxDb = 0;
-    private boolean audioEnabled = false;
+    private boolean audioEnabled = true;
     private String demodMode = "WFM"; // WFM | NFM | AM
     private double volume = 0.6;
 
