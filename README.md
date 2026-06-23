@@ -164,8 +164,7 @@ sdr:
   volume: 0.6
 ```
 
-Everything here is also adjustable live from the toolbar; these are just the
-startup values.
+Everything here is also adjustable live from the toolbar; these are just the startup values.
 
 ---
 
