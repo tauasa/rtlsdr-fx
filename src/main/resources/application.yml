@@ -3,16 +3,18 @@ sdr:
   port: 1234
   fft-size: 2048
   sample-rate: 2400000
-  center-frequency: 90900000   # 100 MHz
+  center-frequency: 100000000   # 100 MHz
   auto-gain: true
   gain-tenths-db: 0
   target-fps: 50
   waterfall-height: 320
   min-db: -100
   max-db: 0
-  audio-enabled: true
-  demod-mode: WFM        # WFM | NFM | AM
+  audio-enabled: false
+  demod-mode: WFM        # WFM | NFM | AM | CW
   volume: 0.6
+  cw-pitch: 700          # CW sidetone / BFO pitch (Hz)
+  cw-bandwidth: 300      # CW filter bandwidth (Hz)
 
 spring:
   main:

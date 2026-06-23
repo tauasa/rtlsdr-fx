@@ -12,16 +12,18 @@ public class SdrProperties {
     private int port = 1234;
     private int fftSize = 2048;
     private int sampleRate = 2_400_000;
-    private long centerFrequency = 90_900_000;// 100_000_000L; // 100 MHz (FM band)
+    private long centerFrequency = 100_000_000L; // 100 MHz (FM band)
     private int gainTenthsDb = 0;
     private boolean autoGain = true;
     private int targetFps = 50;
-    private int waterfallHeight = 400;//320;
+    private int waterfallHeight = 320;
     private double minDb = -100;
     private double maxDb = 0;
-    private boolean audioEnabled = true;
-    private String demodMode = "WFM"; // WFM | NFM | AM
+    private boolean audioEnabled = false;
+    private String demodMode = "WFM"; // WFM | NFM | AM | CW
     private double volume = 0.6;
+    private double cwPitch = 700;      // CW sidetone / BFO pitch (Hz)
+    private double cwBandwidth = 300;  // CW filter bandwidth (Hz)
 
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }
@@ -64,4 +66,10 @@ public class SdrProperties {
 
     public double getVolume() { return volume; }
     public void setVolume(double volume) { this.volume = volume; }
+
+    public double getCwPitch() { return cwPitch; }
+    public void setCwPitch(double cwPitch) { this.cwPitch = cwPitch; }
+
+    public double getCwBandwidth() { return cwBandwidth; }
+    public void setCwBandwidth(double cwBandwidth) { this.cwBandwidth = cwBandwidth; }
 }

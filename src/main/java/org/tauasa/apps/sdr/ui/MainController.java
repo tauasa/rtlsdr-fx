@@ -1,15 +1,5 @@
 package org.tauasa.apps.sdr.ui;
 
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-import org.tauasa.apps.sdr.StageReadyEvent;
-import org.tauasa.apps.sdr.config.SdrProperties;
-import org.tauasa.apps.sdr.dsp.Demodulator;
-import org.tauasa.apps.sdr.service.SdrService;
-import org.tauasa.apps.sdr.service.SpectrumFrame;
-
 import javafx.animation.AnimationTimer;
 import javafx.application.HostServices;
 import javafx.application.Platform;
@@ -45,6 +35,15 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+import org.tauasa.apps.sdr.StageReadyEvent;
+import org.tauasa.apps.sdr.config.SdrProperties;
+import org.tauasa.apps.sdr.dsp.Demodulator;
+import org.tauasa.apps.sdr.service.SdrService;
+import org.tauasa.apps.sdr.service.SpectrumFrame;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Builds and drives the JavaFX UI. A Spring bean that reacts to the stage event. */
 @Component
@@ -145,8 +144,14 @@ public final class MainController {
 
     private Node buildToolbar() {
         sourceBox = new ComboBox<>();
-        sourceBox.getItems().addAll("RTL-TCP", "Simulated");
+        sourceBox.getItems().addAll("RTL-TCP", "Simulated", "Simulated (CW)");
         sourceBox.getSelectionModel().select("Simulated");
+        sourceBox.setOnAction(e -> {
+            if ("Simulated (CW)".equals(sourceBox.getValue()) && modeBox != null) {
+                modeBox.getSelectionModel().select(Demodulator.Mode.CW);
+                sdr.setDemodMode(Demodulator.Mode.CW);
+            }
+        });
 
         hostField = new TextField(props.getHost());
         hostField.setPrefWidth(110);
@@ -262,6 +267,8 @@ public final class MainController {
                 }
                 if ("RTL-TCP".equals(sourceBox.getValue())) {
                     sdr.startRtl(hostField.getText().trim(), Integer.parseInt(portField.getText().trim()));
+                } else if ("Simulated (CW)".equals(sourceBox.getValue())) {
+                    sdr.startSimulatedCw();
                 } else {
                     sdr.startSimulated();
                 }
@@ -387,7 +394,7 @@ public final class MainController {
     private void showSettingsDialog() {
         Stage dialog = newModalStage("Settings");
 
-        Label header = new Label("Display Colors");
+        Label header = new Label("Display Colours");
         header.setFont(Font.font("System", FontWeight.BOLD, 14));
         header.setTextFill(Color.web("#e6ecf5"));
 
@@ -414,13 +421,38 @@ public final class MainController {
 
         VBox waterfallBox = new VBox(4, palette, preview);
 
+        // CW (Morse) controls
+        Label cwHeader = new Label("CW (Morse)");
+        cwHeader.setFont(Font.font("System", FontWeight.BOLD, 14));
+        cwHeader.setTextFill(Color.web("#e6ecf5"));
+
+        Slider cwPitch = new Slider(300, 1000, sdr.getCwPitch());
+        cwPitch.setPrefWidth(170);
+        Label cwPitchVal = new Label(Math.round(sdr.getCwPitch()) + " Hz");
+        cwPitchVal.setTextFill(Color.web("#7f8aa0"));
+        cwPitch.valueProperty().addListener((o, a, b) -> {
+            sdr.setCwParams(b.doubleValue(), sdr.getCwBandwidth());
+            cwPitchVal.setText(Math.round(b.doubleValue()) + " Hz");
+        });
+
+        Slider cwBw = new Slider(100, 1000, sdr.getCwBandwidth());
+        cwBw.setPrefWidth(170);
+        Label cwBwVal = new Label(Math.round(sdr.getCwBandwidth()) + " Hz");
+        cwBwVal.setTextFill(Color.web("#7f8aa0"));
+        cwBw.valueProperty().addListener((o, a, b) -> {
+            sdr.setCwParams(sdr.getCwPitch(), b.doubleValue());
+            cwBwVal.setText(Math.round(b.doubleValue()) + " Hz");
+        });
+
         Button reset = new Button("Reset to defaults");
         reset.setOnAction(e -> {
             trace.setValue(Color.rgb(80, 200, 255));
-            peak.setValue(Color.rgb(230, 234, 18));
-            palette.getSelectionModel().select(Palette.ICE);
-            waterfallView.setPalette(Palette.ICE);
-            drawPalettePreview(preview, Palette.ICE);
+            peak.setValue(Color.rgb(95, 105, 125));
+            palette.getSelectionModel().select(Palette.CLASSIC);
+            waterfallView.setPalette(Palette.CLASSIC);
+            drawPalettePreview(preview, Palette.CLASSIC);
+            cwPitch.setValue(700);
+            cwBw.setValue(300);
         });
         Button close = new Button("Close");
         close.setOnAction(e -> dialog.close());
@@ -432,11 +464,14 @@ public final class MainController {
                 settingRow("Spectrum trace", trace),
                 settingRow("Spectrum peak hold", peak),
                 settingRow("Waterfall palette", waterfallBox),
+                cwHeader,
+                settingRow("CW pitch", new HBox(8, cwPitch, cwPitchVal)),
+                settingRow("CW filter width", new HBox(8, cwBw, cwBwVal)),
                 spacer(4), buttons);
         content.setPadding(new Insets(18));
         content.setStyle("-fx-background-color: #0b0e14;");
 
-        dialog.setScene(new Scene(content, 420, 300));
+        dialog.setScene(new Scene(content, 440, 420));
         dialog.showAndWait();
     }
 

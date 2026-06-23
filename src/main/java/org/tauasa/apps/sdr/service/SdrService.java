@@ -7,6 +7,7 @@ import org.tauasa.apps.sdr.dsp.Demodulator;
 import org.tauasa.apps.sdr.dsp.SpectrumProcessor;
 import org.tauasa.apps.sdr.source.RtlTcpSource;
 import org.tauasa.apps.sdr.source.SignalSource;
+import org.tauasa.apps.sdr.source.SimulatedCwSource;
 import org.tauasa.apps.sdr.source.SimulatedSource;
 
 import jakarta.annotation.PreDestroy;
@@ -45,6 +46,7 @@ public class SdrService {
         this.sampleRate = props.getSampleRate();
         this.minFramePeriodNs = 1_000_000_000L / Math.max(1, props.getTargetFps());
         this.demod.setMode(parseMode(props.getDemodMode()));
+        this.demod.setCwParams(props.getCwPitch(), props.getCwBandwidth());
         this.demod.configure(sampleRate);
         this.audio.setVolume((float) props.getVolume());
     }
@@ -84,6 +86,15 @@ public class SdrService {
         stop();
         try {
             beginWith(new SimulatedSource(processor.size(), sampleRate, centerFreq, props.getTargetFps()));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public synchronized void startSimulatedCw() {
+        stop();
+        try {
+            beginWith(new SimulatedCwSource(sampleRate, centerFreq));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -191,6 +202,18 @@ public class SdrService {
 
     public Demodulator.Mode getDemodMode() {
         return demod.getMode();
+    }
+
+    public void setCwParams(double pitch, double bandwidth) {
+        demod.setCwParams(pitch, bandwidth);
+    }
+
+    public double getCwPitch() {
+        return demod.getCwPitch();
+    }
+
+    public double getCwBandwidth() {
+        return demod.getCwBandwidth();
     }
 
     @PreDestroy
