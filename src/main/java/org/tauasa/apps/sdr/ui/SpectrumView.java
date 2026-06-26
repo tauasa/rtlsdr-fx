@@ -1,11 +1,11 @@
 package org.tauasa.apps.sdr.ui;
 
+import java.util.Arrays;
+
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
-
-import java.util.Arrays;
 
 /** Draws the live power spectrum plus a slowly-decaying peak-hold trace. */
 public final class SpectrumView {
@@ -17,7 +17,7 @@ public final class SpectrumView {
 
     private Color traceColor = Color.rgb(80, 200, 255);
     private Color fillColor = Color.rgb(80, 200, 255, 0.25);
-    private Color peakColor = Color.rgb(95, 105, 125);
+    private Color peakColor = Color.rgb(238, 238, 7);
 
     public SpectrumView(double minDb, double maxDb) {
         this.minDb = minDb;

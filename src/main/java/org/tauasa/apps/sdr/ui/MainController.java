@@ -1,5 +1,15 @@
 package org.tauasa.apps.sdr.ui;
 
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+import org.tauasa.apps.sdr.StageReadyEvent;
+import org.tauasa.apps.sdr.config.SdrProperties;
+import org.tauasa.apps.sdr.dsp.Demodulator;
+import org.tauasa.apps.sdr.service.SdrService;
+import org.tauasa.apps.sdr.service.SpectrumFrame;
+
 import javafx.animation.AnimationTimer;
 import javafx.application.HostServices;
 import javafx.application.Platform;
@@ -35,15 +45,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-import org.tauasa.apps.sdr.StageReadyEvent;
-import org.tauasa.apps.sdr.config.SdrProperties;
-import org.tauasa.apps.sdr.dsp.Demodulator;
-import org.tauasa.apps.sdr.service.SdrService;
-import org.tauasa.apps.sdr.service.SpectrumFrame;
-
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Builds and drives the JavaFX UI. A Spring bean that reacts to the stage event. */
 @Component
@@ -110,7 +111,7 @@ public final class MainController {
 
         sdr.setFrameSink(latest::set);
 
-        Scene scene = new Scene(root, 1100, 760);
+        Scene scene = new Scene(root, 1230, 760);
         stage.setScene(scene);
         stage.setTitle("rtlsdr-fx \u2014 Lightweight RTL-SDR Receiver");
         stage.setOnCloseRequest(e -> sdr.stop());
@@ -447,7 +448,7 @@ public final class MainController {
         Button reset = new Button("Reset to defaults");
         reset.setOnAction(e -> {
             trace.setValue(Color.rgb(80, 200, 255));
-            peak.setValue(Color.rgb(95, 105, 125));
+            peak.setValue(Color.rgb(227, 243, 10));
             palette.getSelectionModel().select(Palette.CLASSIC);
             waterfallView.setPalette(Palette.CLASSIC);
             drawPalettePreview(preview, Palette.CLASSIC);
