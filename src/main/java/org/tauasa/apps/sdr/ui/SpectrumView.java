@@ -1,7 +1,9 @@
 package org.tauasa.apps.sdr.ui;
 
 import java.util.Arrays;
+import java.util.function.Consumer;
 
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -9,6 +11,8 @@ import javafx.scene.text.Font;
 
 /** Draws the live power spectrum plus a slowly-decaying peak-hold trace. */
 public final class SpectrumView {
+
+    private static final double HANDLE_RADIUS = 8;
 
     private final Canvas canvas = new Canvas();
     private float[] peak;
@@ -18,10 +22,54 @@ public final class SpectrumView {
     private Color traceColor = Color.rgb(80, 200, 255);
     private Color fillColor = Color.rgb(80, 200, 255, 0.25);
     private Color peakColor = Color.rgb(238, 238, 7);
+    private Color markerColor = Color.rgb(255, 200, 80);
+
+    private boolean dragging = false;
+    private double lineX = -1;
+    private long lastCenterFreq;
+    private int lastSampleRate;
+    private Consumer<Long> onFrequencyChanged;
 
     public SpectrumView(double minDb, double maxDb) {
         this.minDb = minDb;
         this.maxDb = maxDb;
+        installDragHandlers();
+    }
+
+    public void setOnFrequencyChanged(Consumer<Long> cb) {
+        this.onFrequencyChanged = cb;
+    }
+
+    private void installDragHandlers() {
+        canvas.setOnMouseMoved(e -> {
+            double cx = dragging ? lineX : canvas.getWidth() / 2.0;
+            canvas.setCursor(Math.abs(e.getX() - cx) <= HANDLE_RADIUS
+                    ? Cursor.H_RESIZE : Cursor.DEFAULT);
+        });
+        canvas.setOnMousePressed(e -> {
+            double cx = canvas.getWidth() / 2.0;
+            if (Math.abs(e.getX() - cx) <= HANDLE_RADIUS) {
+                dragging = true;
+                lineX = e.getX();
+                canvas.setCursor(Cursor.H_RESIZE);
+            }
+        });
+        canvas.setOnMouseDragged(e -> {
+            if (dragging) {
+                lineX = Math.max(0, Math.min(canvas.getWidth(), e.getX()));
+            }
+        });
+        canvas.setOnMouseReleased(e -> {
+            if (dragging) {
+                dragging = false;
+                canvas.setCursor(Cursor.DEFAULT);
+                if (onFrequencyChanged != null && lastSampleRate > 0) {
+                    double offset = (lineX / canvas.getWidth() - 0.5) * lastSampleRate;
+                    onFrequencyChanged.accept(lastCenterFreq + Math.round(offset));
+                }
+                lineX = -1;
+            }
+        });
     }
 
     public Canvas getCanvas() {
@@ -55,7 +103,19 @@ public final class SpectrumView {
         }
     }
 
+    public Color getMarkerColor() {
+        return markerColor;
+    }
+
+    public void setMarkerColor(Color c) {
+        if (c != null) {
+            this.markerColor = c;
+        }
+    }
+
     public void render(float[] power, long centerFreq, int sampleRate) {
+        lastCenterFreq = centerFreq;
+        lastSampleRate = sampleRate;
         double w = canvas.getWidth();
         double h = canvas.getHeight();
         GraphicsContext g = canvas.getGraphicsContext2D();
@@ -136,6 +196,20 @@ public final class SpectrumView {
             }
         }
         g.stroke();
+
+        // draggable centre-frequency marker
+        double lx = dragging ? lineX : w / 2.0;
+        g.setStroke(markerColor);
+        g.setLineWidth(1.5);
+        g.setLineDashes(6, 4);
+        g.strokeLine(lx, 0, lx, h);
+        g.setLineDashes();
+
+        double freqAtLine = centerFreq + (lx / w - 0.5) * sampleRate;
+        g.setFill(markerColor);
+        g.setFont(Font.font(10));
+        double labelX = (lx + 4 + 60 < w) ? lx + 4 : lx - 64;
+        g.fillText(String.format("%.4f MHz", freqAtLine / 1e6), labelX, 14);
     }
 
     private double dbToY(double db, double h) {

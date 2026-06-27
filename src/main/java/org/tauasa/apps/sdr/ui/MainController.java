@@ -89,6 +89,10 @@ public final class MainController {
         this.hostServices = event.getHostServices();
 
         spectrumView = new SpectrumView(props.getMinDb(), props.getMaxDb());
+        spectrumView.setOnFrequencyChanged(freq -> {
+            sdr.setCenterFrequency(freq);
+            freqField.setText(String.format("%.4f", freq / 1e6));
+        });
         waterfallView = new WaterfallView(sdr.fftSize(), props.getWaterfallHeight(),
                 props.getMinDb(), props.getMaxDb());
 
@@ -406,6 +410,9 @@ public final class MainController {
         ColorPicker peak = new ColorPicker(spectrumView.getPeakColor());
         peak.valueProperty().addListener((o, a, b) -> spectrumView.setPeakColor(b));
 
+        ColorPicker marker = new ColorPicker(spectrumView.getMarkerColor());
+        marker.valueProperty().addListener((o, a, b) -> spectrumView.setMarkerColor(b));
+
         // Waterfall palette + live preview
         ComboBox<Palette> palette = new ComboBox<>();
         palette.getItems().addAll(Palette.all());
@@ -449,6 +456,7 @@ public final class MainController {
         reset.setOnAction(e -> {
             trace.setValue(Color.rgb(80, 200, 255));
             peak.setValue(Color.rgb(227, 243, 10));
+            marker.setValue(Color.rgb(255, 200, 80));
             palette.getSelectionModel().select(Palette.CLASSIC);
             waterfallView.setPalette(Palette.CLASSIC);
             drawPalettePreview(preview, Palette.CLASSIC);
@@ -464,6 +472,7 @@ public final class MainController {
                 header,
                 settingRow("Spectrum trace", trace),
                 settingRow("Spectrum peak hold", peak),
+                settingRow("Frequency marker", marker),
                 settingRow("Waterfall palette", waterfallBox),
                 cwHeader,
                 settingRow("CW pitch", new HBox(8, cwPitch, cwPitchVal)),
