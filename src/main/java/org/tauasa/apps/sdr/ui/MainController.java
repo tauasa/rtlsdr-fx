@@ -516,7 +516,7 @@ public final class MainController {
         Label tagline = new Label("Lightweight RTL-SDR Receiver · Spring Boot + JavaFX");
         tagline.setTextFill(Color.web("#9aa3b5"));
 
-        Label version = new Label("Version 1.0.2");
+        Label version = new Label("Version 1.0.3");
         version.setTextFill(Color.web("#7f8aa0"));
 
         Label copyright = new Label("Copyright © 2026 Tauasa Timoteo");
