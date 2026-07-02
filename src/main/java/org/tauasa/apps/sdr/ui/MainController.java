@@ -30,14 +30,18 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -71,12 +75,18 @@ public final class MainController {
     private TextField hostField;
     private TextField portField;
     private TextField freqField;
+    private Button tuneBtn;
     private ComboBox<Integer> rateBox;
     private CheckBox autoGain;
     private Slider gainSlider;
     private ComboBox<Demodulator.Mode> modeBox;
     private ToggleButton audioBtn;
     private Slider volumeSlider;
+
+    private BorderPane root;
+    private Node menuRow;
+    private boolean toolbarVisible = true;
+    private boolean toolbarHorizontal = true;
 
     public MainController(SdrService sdr, SdrProperties props) {
         this.sdr = sdr;
@@ -107,47 +117,28 @@ public final class MainController {
         split.setOrientation(Orientation.VERTICAL);
         split.setDividerPositions(0.42);
 
-        BorderPane root = new BorderPane();
+        initToolbarControls();
+
+        root = new BorderPane();
         root.setStyle("-fx-background-color: #0b0e14;");
-        root.setTop(new VBox(buildMenuBar(), buildToolbar()));
+        menuRow = buildMenuRow();
         root.setCenter(split);
         root.setBottom(buildStatusBar());
+
+        applyToolbarLayout();
 
         sdr.setFrameSink(latest::set);
 
         Scene scene = new Scene(root, 1230, 760);
         stage.setScene(scene);
-        stage.setTitle("rtlsdr-fx \u2014 Lightweight RTL-SDR Receiver");
+        stage.setTitle("rtlsdr-fx — Lightweight RTL-SDR Receiver");
         stage.setOnCloseRequest(e -> sdr.stop());
         stage.show();
 
         startRenderLoop();
     }
 
-    private MenuBar buildMenuBar() {
-        MenuItem exit = new MenuItem("Exit");
-        exit.setOnAction(e -> {
-            sdr.stop();
-            Platform.exit();
-        });
-        Menu file = new Menu("File");
-        file.getItems().add(exit);
-
-        MenuItem settings = new MenuItem("Settings\u2026");
-        settings.setOnAction(e -> showSettingsDialog());
-        Menu edit = new Menu("Edit");
-        edit.getItems().add(settings);
-
-        MenuItem about = new MenuItem("About\u2026");
-        about.setOnAction(e -> showAboutDialog());
-        Menu help = new Menu("Help");
-        help.getItems().add(about);
-
-        MenuBar bar = new MenuBar(file, edit, help);
-        return bar;
-    }
-
-    private Node buildToolbar() {
+    private void initToolbarControls() {
         sourceBox = new ComboBox<>();
         sourceBox.getItems().addAll("RTL-TCP", "Simulated", "Simulated (CW)");
         sourceBox.getSelectionModel().select("Simulated");
@@ -166,6 +157,9 @@ public final class MainController {
         freqField = new TextField(String.format("%.4f", props.getCenterFrequency() / 1e6));
         freqField.setPrefWidth(100);
         freqField.setOnAction(e -> applyFrequency());
+
+        tuneBtn = new Button("Tune");
+        tuneBtn.setOnAction(e -> applyFrequency());
 
         rateBox = new ComboBox<>();
         rateBox.getItems().addAll(250000, 1024000, 1536000, 1800000, 2048000, 2400000, 2560000, 3200000);
@@ -190,9 +184,6 @@ public final class MainController {
         gainSlider.setDisable(props.isAutoGain());
         gainSlider.valueProperty().addListener((o, a, b) -> sdr.setGain((int) Math.round(b.doubleValue() * 10)));
 
-        Button tune = new Button("Tune");
-        tune.setOnAction(e -> applyFrequency());
-
         modeBox = new ComboBox<>();
         modeBox.getItems().addAll(Demodulator.Mode.values());
         modeBox.getSelectionModel().select(sdr.getDemodMode());
@@ -211,12 +202,93 @@ public final class MainController {
         volumeSlider.valueProperty().addListener((o, a, b) -> sdr.setVolume(b.doubleValue()));
 
         connectBtn.setOnAction(e -> toggleConnect());
+    }
+
+    private Node buildMenuRow() {
+        Button hamburger = new Button("☰");
+        hamburger.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: #c7cedb; -fx-font-size: 14; -fx-padding: 2 10 2 10; -fx-cursor: hand;");
+        hamburger.setOnAction(e -> setToolbarVisible(!toolbarVisible));
+
+        MenuBar bar = buildMenuBar();
+        HBox.setHgrow(bar, Priority.ALWAYS);
+
+        HBox row = new HBox(hamburger, bar);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-background-color: #11151f;");
+        return row;
+    }
+
+    private MenuBar buildMenuBar() {
+        MenuItem exit = new MenuItem("Exit");
+        exit.setOnAction(e -> {
+            sdr.stop();
+            Platform.exit();
+        });
+        Menu file = new Menu("File");
+        file.getItems().add(exit);
+
+        MenuItem settings = new MenuItem("Settings…");
+        settings.setOnAction(e -> showSettingsDialog());
+        Menu edit = new Menu("Edit");
+        edit.getItems().add(settings);
+
+        RadioMenuItem tbHorizontal = new RadioMenuItem("Horizontal");
+        RadioMenuItem tbVertical = new RadioMenuItem("Vertical");
+        ToggleGroup tg = new ToggleGroup();
+        tbHorizontal.setToggleGroup(tg);
+        tbVertical.setToggleGroup(tg);
+        tbHorizontal.setSelected(true);
+        tbHorizontal.setOnAction(e -> setToolbarOrientation(true));
+        tbVertical.setOnAction(e -> setToolbarOrientation(false));
+        Menu toolbarMenu = new Menu("Toolbar");
+        toolbarMenu.getItems().addAll(tbHorizontal, tbVertical);
+        Menu view = new Menu("View");
+        view.getItems().add(toolbarMenu);
+
+        MenuItem about = new MenuItem("About…");
+        about.setOnAction(e -> showAboutDialog());
+        Menu help = new Menu("Help");
+        help.getItems().add(about);
+
+        MenuBar bar = new MenuBar(file, edit, view, help);
+        return bar;
+    }
+
+    private void setToolbarVisible(boolean visible) {
+        toolbarVisible = visible;
+        applyToolbarLayout();
+    }
+
+    private void setToolbarOrientation(boolean horizontal) {
+        toolbarHorizontal = horizontal;
+        applyToolbarLayout();
+    }
+
+    private void applyToolbarLayout() {
+        if (!toolbarVisible) {
+            root.setTop(menuRow);
+            root.setLeft(null);
+        } else if (toolbarHorizontal) {
+            root.setTop(new VBox(menuRow, buildHorizontalToolbar()));
+            root.setLeft(null);
+        } else {
+            root.setTop(menuRow);
+            root.setLeft(buildVerticalToolbar());
+        }
+    }
+
+    private Node buildHorizontalToolbar() {
+        gainSlider.setPrefWidth(140);
+        volumeSlider.setPrefWidth(90);
+        freqField.setPrefWidth(100);
+        hostField.setPrefWidth(110);
 
         FlowPane bar = new FlowPane(8, 8,
                 labeled("Source", sourceBox),
                 labeled("Host", hostField),
                 labeled("Port", portField),
-                labeled("Freq (MHz)", freqField), bottomAlign(tune),
+                labeled("Freq (MHz)", freqField), bottomAlign(tuneBtn),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
@@ -229,6 +301,36 @@ public final class MainController {
         bar.setRowValignment(VPos.BOTTOM);
         bar.setStyle("-fx-background-color: #11151f; -fx-border-color: #1d2230; -fx-border-width: 0 0 1 0;");
         return bar;
+    }
+
+    private Node buildVerticalToolbar() {
+        gainSlider.setPrefWidth(130);
+        volumeSlider.setPrefWidth(130);
+        freqField.setPrefWidth(120);
+        hostField.setPrefWidth(120);
+
+        VBox bar = new VBox(6,
+                labeled("Source", sourceBox),
+                labeled("Host", hostField),
+                labeled("Port", portField),
+                labeled("Freq (MHz)", freqField),
+                bottomAlign(tuneBtn),
+                labeled("Rate (sps)", rateBox),
+                bottomAlign(autoGain),
+                labeled("Gain (dB)", gainSlider),
+                labeled("Mode", modeBox),
+                bottomAlign(audioBtn),
+                labeled("Vol", volumeSlider),
+                bottomAlign(connectBtn));
+        bar.setPadding(new Insets(8));
+        bar.setStyle("-fx-background-color: #11151f; -fx-border-color: #1d2230; -fx-border-width: 0 1 0 0;");
+
+        ScrollPane scroll = new ScrollPane(bar);
+        scroll.setFitToWidth(true);
+        scroll.setPrefWidth(160);
+        scroll.setStyle("-fx-background-color: #11151f; -fx-background: #11151f;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        return scroll;
     }
 
     private VBox labeled(String text, Node node) {
@@ -304,7 +406,7 @@ public final class MainController {
         try {
             sdr.setAudioEnabled(audioBtn.isSelected());
             if (audioBtn.isSelected()) {
-                statusLabel.setText("Audio on \u2014 " + sdr.getDemodMode()
+                statusLabel.setText("Audio on — " + sdr.getDemodMode()
                         + ". Tune to a station and Connect to hear it.");
             } else {
                 statusLabel.setText("Audio off.");
@@ -360,13 +462,13 @@ public final class MainController {
         name.setFont(Font.font("System", FontWeight.BOLD, 22));
         name.setTextFill(Color.web("#e6ecf5"));
 
-        Label tagline = new Label("Lightweight RTL-SDR Receiver \u00b7 Spring Boot + JavaFX");
+        Label tagline = new Label("Lightweight RTL-SDR Receiver · Spring Boot + JavaFX");
         tagline.setTextFill(Color.web("#9aa3b5"));
 
-        Label version = new Label("Version 1.0.0");
+        Label version = new Label("Version 1.0.2");
         version.setTextFill(Color.web("#7f8aa0"));
 
-        Label copyright = new Label("Copyright \u00a9 2026 Tauasa Timoteo");
+        Label copyright = new Label("Copyright © 2026 Tauasa Timoteo");
         copyright.setTextFill(Color.web("#c7cedb"));
 
         Label license = new Label("Released under the MIT License.");
