@@ -1,5 +1,10 @@
 package org.tauasa.apps.sdr.ui;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.context.event.EventListener;
@@ -32,6 +37,7 @@ import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
@@ -74,7 +80,7 @@ public final class MainController {
     private ComboBox<String> sourceBox;
     private TextField hostField;
     private TextField portField;
-    private TextField freqField;
+    private ComboBox<String> freqCombo;
     private Button tuneBtn;
     private ComboBox<Integer> rateBox;
     private CheckBox autoGain;
@@ -101,7 +107,7 @@ public final class MainController {
         spectrumView = new SpectrumView(props.getMinDb(), props.getMaxDb());
         spectrumView.setOnFrequencyChanged(freq -> {
             sdr.setCenterFrequency(freq);
-            freqField.setText(String.format("%.4f", freq / 1e6));
+            freqCombo.getEditor().setText(String.format("%.4f", freq / 1e6));
         });
         waterfallView = new WaterfallView(sdr.fftSize(), props.getWaterfallHeight(),
                 props.getMinDb(), props.getMaxDb());
@@ -129,7 +135,7 @@ public final class MainController {
 
         sdr.setFrameSink(latest::set);
 
-        Scene scene = new Scene(root, 1230, 760);
+        Scene scene = new Scene(root, 1260, 760);
         stage.setScene(scene);
         stage.setTitle("rtlsdr-fx — Lightweight RTL-SDR Receiver");
         stage.setOnCloseRequest(e -> sdr.stop());
@@ -154,9 +160,15 @@ public final class MainController {
         portField = new TextField(Integer.toString(props.getPort()));
         portField.setPrefWidth(60);
 
-        freqField = new TextField(String.format("%.4f", props.getCenterFrequency() / 1e6));
-        freqField.setPrefWidth(100);
-        freqField.setOnAction(e -> applyFrequency());
+        freqCombo = new ComboBox<>();
+        freqCombo.setEditable(true);
+        freqCombo.setPrefWidth(130);
+        freqCombo.getEditor().setText(String.format("%.4f", props.getCenterFrequency() / 1e6));
+        freqCombo.getEditor().setOnAction(e -> applyFrequency());
+        freqCombo.setOnAction(e -> {
+            if (freqCombo.getValue() != null) applyFrequency();
+        });
+        loadSavedFrequencies();
 
         tuneBtn = new Button("Tune");
         tuneBtn.setOnAction(e -> applyFrequency());
@@ -220,13 +232,15 @@ public final class MainController {
     }
 
     private MenuBar buildMenuBar() {
+        MenuItem saveFreq = new MenuItem("Save Current Freq");
+        saveFreq.setOnAction(e -> saveCurrentFrequency());
         MenuItem exit = new MenuItem("Exit");
         exit.setOnAction(e -> {
             sdr.stop();
             Platform.exit();
         });
         Menu file = new Menu("File");
-        file.getItems().add(exit);
+        file.getItems().addAll(saveFreq, new SeparatorMenuItem(), exit);
 
         MenuItem settings = new MenuItem("Settings…");
         settings.setOnAction(e -> showSettingsDialog());
@@ -281,14 +295,14 @@ public final class MainController {
     private Node buildHorizontalToolbar() {
         gainSlider.setPrefWidth(140);
         volumeSlider.setPrefWidth(90);
-        freqField.setPrefWidth(100);
+        freqCombo.setPrefWidth(130);
         hostField.setPrefWidth(110);
 
         FlowPane bar = new FlowPane(8, 8,
                 labeled("Source", sourceBox),
                 labeled("Host", hostField),
                 labeled("Port", portField),
-                labeled("Freq (MHz)", freqField), bottomAlign(tuneBtn),
+                labeled("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
@@ -306,14 +320,14 @@ public final class MainController {
     private Node buildVerticalToolbar() {
         gainSlider.setPrefWidth(130);
         volumeSlider.setPrefWidth(130);
-        freqField.setPrefWidth(120);
+        freqCombo.setPrefWidth(120);
         hostField.setPrefWidth(120);
 
         VBox bar = new VBox(6,
                 labeled("Source", sourceBox),
                 labeled("Host", hostField),
                 labeled("Port", portField),
-                labeled("Freq (MHz)", freqField),
+                labeled("Freq (MHz)", freqCombo),
                 bottomAlign(tuneBtn),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
@@ -357,11 +371,48 @@ public final class MainController {
 
     private void applyFrequency() {
         try {
-            double mhz = Double.parseDouble(freqField.getText().trim());
+            double mhz = Double.parseDouble(freqCombo.getEditor().getText().trim());
             sdr.setCenterFrequency((long) (mhz * 1e6));
         } catch (NumberFormatException ignored) {
             // leave the previous frequency in place
         }
+    }
+
+    private static final Path FREQ_FILE =
+            Path.of(System.getProperty("user.home"), ".rtlsdr-fx", "frequencies.txt");
+
+    private void saveCurrentFrequency() {
+        String text = freqCombo.getEditor().getText().trim();
+        try {
+            double mhz = Double.parseDouble(text);
+            String entry = String.format("%.4f", mhz);
+            Files.createDirectories(FREQ_FILE.getParent());
+            List<String> lines = Files.exists(FREQ_FILE)
+                    ? new ArrayList<>(Files.readAllLines(FREQ_FILE))
+                    : new ArrayList<>();
+            if (!lines.contains(entry)) {
+                lines.add(entry);
+                Files.write(FREQ_FILE, lines);
+            }
+            loadSavedFrequencies();
+            statusLabel.setText("Saved " + entry + " MHz.");
+        } catch (NumberFormatException e) {
+            statusLabel.setText("Cannot save: not a valid frequency.");
+        } catch (IOException e) {
+            statusLabel.setText("Cannot save frequency: " + e.getMessage());
+        }
+    }
+
+    private void loadSavedFrequencies() {
+        List<String> saved = new ArrayList<>();
+        if (Files.exists(FREQ_FILE)) {
+            try {
+                saved = Files.readAllLines(FREQ_FILE);
+            } catch (IOException ignored) {}
+        }
+        String current = freqCombo.getEditor().getText();
+        freqCombo.getItems().setAll(saved);
+        freqCombo.getEditor().setText(current);
     }
 
     private void toggleConnect() {
