@@ -12,7 +12,7 @@ public class SdrProperties {
     private int port = 1234;
     private int fftSize = 2048;
     private int sampleRate = 2_400_000;
-    private long centerFrequency = 100_000_000L; // 100 MHz (FM band)
+    private long centerFrequency = 90_900_000L; // 90.9000 MHz (FM band)
     private int gainTenthsDb = 0;
     private boolean autoGain = true;
     private int targetFps = 50;

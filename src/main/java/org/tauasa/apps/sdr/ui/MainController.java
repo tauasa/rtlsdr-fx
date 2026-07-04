@@ -92,7 +92,7 @@ public final class MainController {
     private BorderPane root;
     private Node menuRow;
     private boolean toolbarVisible = true;
-    private boolean toolbarHorizontal = true;
+    private boolean toolbarHorizontal = false;
 
     public MainController(SdrService sdr, SdrProperties props) {
         this.sdr = sdr;
@@ -212,6 +212,7 @@ public final class MainController {
         volumeSlider = new Slider(0, 1, props.getVolume());
         volumeSlider.setPrefWidth(90);
         volumeSlider.valueProperty().addListener((o, a, b) -> sdr.setVolume(b.doubleValue()));
+        updateAudioControls(false);
 
         connectBtn.setOnAction(e -> toggleConnect());
     }
@@ -252,7 +253,7 @@ public final class MainController {
         ToggleGroup tg = new ToggleGroup();
         tbHorizontal.setToggleGroup(tg);
         tbVertical.setToggleGroup(tg);
-        tbHorizontal.setSelected(true);
+        tbVertical.setSelected(true);
         tbHorizontal.setOnAction(e -> setToolbarOrientation(true));
         tbVertical.setOnAction(e -> setToolbarOrientation(false));
         Menu toolbarMenu = new Menu("Toolbar");
@@ -300,6 +301,7 @@ public final class MainController {
 
         FlowPane bar = new FlowPane(8, 8,
                 labeled("Source", sourceBox),
+                bottomAlign(connectBtn),
                 labeled("Host", hostField),
                 labeled("Port", portField),
                 labeled("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
@@ -307,9 +309,8 @@ public final class MainController {
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
                 labeled("Mode", modeBox),
-                bottomAlign(audioBtn),
                 labeled("Vol", volumeSlider),
-                bottomAlign(connectBtn));
+                bottomAlign(audioBtn));
         bar.setPadding(new Insets(8));
         bar.setAlignment(Pos.BOTTOM_LEFT);
         bar.setRowValignment(VPos.BOTTOM);
@@ -325,6 +326,7 @@ public final class MainController {
 
         VBox bar = new VBox(6,
                 labeled("Source", sourceBox),
+                bottomAlign(connectBtn),
                 labeled("Host", hostField),
                 labeled("Port", portField),
                 labeled("Freq (MHz)", freqCombo),
@@ -333,9 +335,8 @@ public final class MainController {
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
                 labeled("Mode", modeBox),
-                bottomAlign(audioBtn),
                 labeled("Vol", volumeSlider),
-                bottomAlign(connectBtn));
+                bottomAlign(audioBtn));
         bar.setPadding(new Insets(8));
         bar.setStyle("-fx-background-color: #11151f; -fx-border-color: #1d2230; -fx-border-width: 0 1 0 0;");
 
@@ -466,6 +467,12 @@ public final class MainController {
             audioBtn.setSelected(false);
             statusLabel.setText("Audio error: " + ex.getMessage());
         }
+        updateAudioControls(audioBtn.isSelected());
+    }
+
+    private void updateAudioControls(boolean audioOn) {
+        audioBtn.setStyle(audioOn ? "-fx-base: #2ecfa1;" : "");
+        volumeSlider.setDisable(!audioOn);
     }
 
     private void startRenderLoop() {
@@ -516,7 +523,7 @@ public final class MainController {
         Label tagline = new Label("Lightweight RTL-SDR Receiver · Spring Boot + JavaFX");
         tagline.setTextFill(Color.web("#9aa3b5"));
 
-        Label version = new Label("Version 1.0.2");
+        Label version = new Label("Version 1.0.3");
         version.setTextFill(Color.web("#7f8aa0"));
 
         Label copyright = new Label("Copyright © 2026 Tauasa Timoteo");

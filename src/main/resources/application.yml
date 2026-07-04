@@ -3,7 +3,7 @@ sdr:
   port: 1234
   fft-size: 2048
   sample-rate: 2400000
-  center-frequency: 100000000   # 100 MHz
+  center-frequency: 90900000    # 90.9000 MHz
   auto-gain: true
   gain-tenths-db: 0
   target-fps: 50
