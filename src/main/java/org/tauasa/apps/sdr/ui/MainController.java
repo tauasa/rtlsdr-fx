@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -32,6 +33,7 @@ import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
@@ -243,10 +245,12 @@ public final class MainController {
         Menu file = new Menu("File");
         file.getItems().addAll(saveFreq, new SeparatorMenuItem(), exit);
 
+        MenuItem frequencies = new MenuItem("Frequencies…");
+        frequencies.setOnAction(e -> showFrequenciesDialog());
         MenuItem settings = new MenuItem("Settings…");
         settings.setOnAction(e -> showSettingsDialog());
         Menu edit = new Menu("Edit");
-        edit.getItems().add(settings);
+        edit.getItems().addAll(frequencies, settings);
 
         RadioMenuItem tbHorizontal = new RadioMenuItem("Horizontal");
         RadioMenuItem tbVertical = new RadioMenuItem("Vertical");
@@ -301,9 +305,9 @@ public final class MainController {
 
         FlowPane bar = new FlowPane(8, 8,
                 labeled("Source", sourceBox),
-                bottomAlign(connectBtn),
                 labeled("Host", hostField),
                 labeled("Port", portField),
+                bottomAlign(connectBtn),
                 labeled("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
@@ -326,9 +330,9 @@ public final class MainController {
 
         VBox bar = new VBox(6,
                 labeled("Source", sourceBox),
-                bottomAlign(connectBtn),
                 labeled("Host", hostField),
                 labeled("Port", portField),
+                bottomAlign(connectBtn),
                 labeled("Freq (MHz)", freqCombo),
                 bottomAlign(tuneBtn),
                 labeled("Rate (sps)", rateBox),
@@ -393,6 +397,7 @@ public final class MainController {
                     : new ArrayList<>();
             if (!lines.contains(entry)) {
                 lines.add(entry);
+                lines.sort(Comparator.comparingDouble(Double::parseDouble));
                 Files.write(FREQ_FILE, lines);
             }
             loadSavedFrequencies();
@@ -408,12 +413,27 @@ public final class MainController {
         List<String> saved = new ArrayList<>();
         if (Files.exists(FREQ_FILE)) {
             try {
-                saved = Files.readAllLines(FREQ_FILE);
+                saved = new ArrayList<>(Files.readAllLines(FREQ_FILE));
             } catch (IOException ignored) {}
         }
+        saved.sort(Comparator.comparingDouble(Double::parseDouble));
         String current = freqCombo.getEditor().getText();
         freqCombo.getItems().setAll(saved);
         freqCombo.getEditor().setText(current);
+    }
+
+    private void removeSavedFrequency(String entry) {
+        try {
+            if (!Files.exists(FREQ_FILE)) {
+                return;
+            }
+            List<String> lines = new ArrayList<>(Files.readAllLines(FREQ_FILE));
+            lines.remove(entry);
+            Files.write(FREQ_FILE, lines);
+            loadSavedFrequencies();
+        } catch (IOException e) {
+            statusLabel.setText("Cannot remove frequency: " + e.getMessage());
+        }
     }
 
     private void toggleConnect() {
@@ -551,6 +571,44 @@ public final class MainController {
         content.setStyle("-fx-background-color: #0b0e14;");
 
         dialog.setScene(new Scene(content, 420, 270));
+        dialog.showAndWait();
+    }
+
+    // ---- Edit > Frequencies ----
+
+    private void showFrequenciesDialog() {
+        Stage dialog = newModalStage("Frequencies");
+
+        Label header = new Label("Saved Frequencies (MHz)");
+        header.setFont(Font.font("System", FontWeight.BOLD, 14));
+        header.setTextFill(Color.web("#e6ecf5"));
+
+        ListView<String> list = new ListView<>();
+        list.getItems().setAll(freqCombo.getItems());
+        list.setPrefHeight(240);
+
+        Button remove = new Button("Remove Selected");
+        remove.setDisable(true);
+        remove.setOnAction(e -> {
+            String selected = list.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                removeSavedFrequency(selected);
+                list.getItems().setAll(freqCombo.getItems());
+            }
+        });
+        list.getSelectionModel().selectedItemProperty().addListener(
+                (o, a, b) -> remove.setDisable(b == null));
+
+        Button close = new Button("Close");
+        close.setOnAction(e -> dialog.close());
+        HBox buttons = new HBox(8, remove, close);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox content = new VBox(10, header, list, buttons);
+        content.setPadding(new Insets(18));
+        content.setStyle("-fx-background-color: #0b0e14;");
+
+        dialog.setScene(new Scene(content, 320, 360));
         dialog.showAndWait();
     }
 
