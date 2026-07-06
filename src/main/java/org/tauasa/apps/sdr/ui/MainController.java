@@ -94,7 +94,7 @@ public final class MainController {
     private BorderPane root;
     private Node menuRow;
     private boolean toolbarVisible = true;
-    private boolean toolbarHorizontal = false;
+    private boolean toolbarHorizontal = true;
 
     public MainController(SdrService sdr, SdrProperties props) {
         this.sdr = sdr;
@@ -257,7 +257,7 @@ public final class MainController {
         ToggleGroup tg = new ToggleGroup();
         tbHorizontal.setToggleGroup(tg);
         tbVertical.setToggleGroup(tg);
-        tbVertical.setSelected(true);
+        tbHorizontal.setSelected(true);
         tbHorizontal.setOnAction(e -> setToolbarOrientation(true));
         tbVertical.setOnAction(e -> setToolbarOrientation(false));
         Menu toolbarMenu = new Menu("Toolbar");
@@ -308,7 +308,7 @@ public final class MainController {
                 labeled("Host", hostField),
                 labeled("Port", portField),
                 bottomAlign(connectBtn),
-                labeled("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
+                labeledBold("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
@@ -333,12 +333,16 @@ public final class MainController {
                 labeled("Host", hostField),
                 labeled("Port", portField),
                 bottomAlign(connectBtn),
-                labeled("Freq (MHz)", freqCombo),
+                toolbarDivider(),
+                labeledBold("Freq (MHz)", freqCombo),
                 bottomAlign(tuneBtn),
+                toolbarDivider(),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
+                toolbarDivider(),
                 labeled("Mode", modeBox),
+                toolbarDivider(),
                 labeled("Vol", volumeSlider),
                 bottomAlign(audioBtn));
         bar.setPadding(new Insets(8));
@@ -357,6 +361,22 @@ public final class MainController {
         l.setTextFill(Color.web("#7f8aa0"));
         l.setStyle("-fx-font-size: 10;");
         return new VBox(2, l, node);
+    }
+
+    private VBox labeledBold(String text, Node node) {
+        Label l = new Label(text);
+        l.setTextFill(Color.web("#7f8aa0"));
+        l.setStyle("-fx-font-size: 10; -fx-font-weight: bold;");
+        return new VBox(2, l, node);
+    }
+
+    private Region toolbarDivider() {
+        Region divider = new Region();
+        divider.setMinHeight(1);
+        divider.setPrefHeight(1);
+        divider.setMaxHeight(1);
+        divider.setStyle("-fx-background-color: #5b6b91;");
+        return divider;
     }
 
     private VBox bottomAlign(Node node) {
