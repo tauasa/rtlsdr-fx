@@ -13,7 +13,7 @@
 
     <groupId>org.tauasa.apps</groupId>
     <artifactId>rtlsdr-fx</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
     <name>rtlsdr-fx</name>
     <description>Lightweight RTL-SDR receiver with spectrum + waterfall (Spring Boot + JavaFX)</description>
 
