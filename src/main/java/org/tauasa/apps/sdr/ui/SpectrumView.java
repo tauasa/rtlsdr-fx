@@ -135,7 +135,7 @@ public final class SpectrumView {
             double y = dbToY(db, h);
             g.setStroke(Color.rgb(38, 44, 56));
             g.strokeLine(0, y, w, y);
-            g.setFill(Color.rgb(120, 130, 145));
+            g.setFill(Color.WHITE);
             g.fillText(String.format("%.0f", db), 3, y - 2);
         }
 
@@ -146,7 +146,7 @@ public final class SpectrumView {
             g.setStroke(Color.rgb(38, 44, 56));
             g.strokeLine(x, 0, x, h);
             double freqHz = centerFreq + ((double) i / fdiv - 0.5) * sampleRate;
-            g.setFill(Color.rgb(120, 130, 145));
+            g.setFill(Color.WHITE);
             g.fillText(String.format("%.3f", freqHz / 1e6), Math.min(x + 2, w - 36), h - 3);
         }
 
