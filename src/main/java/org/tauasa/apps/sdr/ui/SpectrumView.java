@@ -13,6 +13,8 @@ import javafx.scene.text.Font;
 public final class SpectrumView {
 
     private static final double HANDLE_RADIUS = 8;
+    /** Compresses the trace/peak curves toward the bottom so they swing less tall, without affecting the dB grid. */
+    private static final double TRACE_VERTICAL_SCALE = 0.6;
 
     private final Canvas canvas = new Canvas();
     private float[] peak;
@@ -163,7 +165,7 @@ public final class SpectrumView {
         g.beginPath();
         for (int i = 0; i < n; i++) {
             double x = w * i / (n - 1);
-            double y = dbToY(peak[i], h);
+            double y = traceY(peak[i], h);
             if (i == 0) {
                 g.moveTo(x, y);
             } else {
@@ -176,7 +178,7 @@ public final class SpectrumView {
         g.beginPath();
         g.moveTo(0, h);
         for (int i = 0; i < n; i++) {
-            g.lineTo(w * i / (n - 1), dbToY(power[i], h));
+            g.lineTo(w * i / (n - 1), traceY(power[i], h));
         }
         g.lineTo(w, h);
         g.closePath();
@@ -184,11 +186,11 @@ public final class SpectrumView {
         g.fill();
 
         g.setStroke(traceColor);
-        g.setLineWidth(1.3);
+        g.setLineWidth(0.8);
         g.beginPath();
         for (int i = 0; i < n; i++) {
             double x = w * i / (n - 1);
-            double y = dbToY(power[i], h);
+            double y = traceY(power[i], h);
             if (i == 0) {
                 g.moveTo(x, y);
             } else {
@@ -216,5 +218,11 @@ public final class SpectrumView {
         double t = (db - minDb) / (maxDb - minDb);
         t = Math.max(0, Math.min(1, t));
         return h - t * h;
+    }
+
+    /** Like dbToY, but pulls the result toward the bottom baseline so the trace swings less tall. */
+    private double traceY(double db, double h) {
+        double y = dbToY(db, h);
+        return h - (h - y) * TRACE_VERTICAL_SCALE;
     }
 }

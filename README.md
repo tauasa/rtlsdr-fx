@@ -23,7 +23,8 @@ The [rtlsdr-spring](https://github.com/tauasa/rtlsdr-spring) project includes it
 - **Menu bar** — `File ▸ Exit`, `Edit ▸ Settings`, `Help ▸ About`.
   - **Settings** opens a modal dialog to choose the **spectrum trace** and
     **peak-hold** colors and pick the **waterfall palette** (Classic, Inferno, Ice, Green/CRT, Grayscale), with a live gradient preview. Changes apply immediately.
-  - **About** shows the app name, version, copyright, MIT license, and a link to the GitHub repository.
+  - **Save Current Frequency**
+  - **Recall/Edit Frequencies**
 - **Audio playback** — demodulates the tuned signal and plays it through your speakers, with selectable mode (**WFM** for broadcast FM, **NFM** for narrowband FM, **AM**, and **CW** for Morse), an on/off toggle, and a volume slider. The output is resampled to a fixed 48 kHz regardless of the device sample rate.
 - **Pure-Java DSP** — radix-2 FFT, Hann window, fftshifted power-in-dB. No external
   DSP dependencies.
