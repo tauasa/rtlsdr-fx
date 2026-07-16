@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.tauasa.apps.sdr.StageReadyEvent;
 import org.tauasa.apps.sdr.config.SdrProperties;
 import org.tauasa.apps.sdr.dsp.Demodulator;
+import org.tauasa.apps.sdr.scan.Scanner;
 import org.tauasa.apps.sdr.service.SdrService;
 import org.tauasa.apps.sdr.service.SpectrumFrame;
 
@@ -23,7 +24,6 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
-import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -47,7 +47,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
@@ -65,6 +64,7 @@ public final class MainController {
 
     private final SdrService sdr;
     private final SdrProperties props;
+    private final Scanner scanner;
     private final AtomicReference<SpectrumFrame> latest = new AtomicReference<>();
 
     private Stage stage;
@@ -91,15 +91,17 @@ public final class MainController {
     private ComboBox<Demodulator.Mode> modeBox;
     private ToggleButton audioBtn;
     private Slider volumeSlider;
+    private ToggleButton scanBtn;
 
     private BorderPane root;
     private Node menuRow;
     private boolean toolbarVisible = true;
     private boolean toolbarHorizontal = true;
 
-    public MainController(SdrService sdr, SdrProperties props) {
+    public MainController(SdrService sdr, SdrProperties props, Scanner scanner) {
         this.sdr = sdr;
         this.props = props;
+        this.scanner = scanner;
     }
 
     @EventListener
@@ -109,6 +111,7 @@ public final class MainController {
 
         spectrumView = new SpectrumView(props.getMinDb(), props.getMaxDb());
         spectrumView.setOnFrequencyChanged(freq -> {
+            stopScanIfActive();
             sdr.setCenterFrequency(freq);
             freqCombo.getEditor().setText(String.format("%.4f", freq / 1e6));
         });
@@ -138,10 +141,24 @@ public final class MainController {
 
         sdr.setFrameSink(latest::set);
 
-        Scene scene = new Scene(root, 1260, 760);
+        scanner.setOnTune(freq -> Platform.runLater(() -> {
+            freqCombo.getEditor().setText(String.format("%.4f", freq / 1e6));
+            statusLabel.setText(String.format("Scanning… %.4f MHz", freq / 1e6));
+        }));
+        scanner.setOnDetect(freq -> Platform.runLater(() ->
+                statusLabel.setText(String.format("Signal detected at %.4f MHz — listening…", freq / 1e6))));
+        scanner.setOnStopped(() -> Platform.runLater(() -> {
+            scanBtn.setSelected(false);
+            updateScanControls(false);
+        }));
+
+        Scene scene = new Scene(root, 1400, 760);
         stage.setScene(scene);
         stage.setTitle("rtlsdr-fx — Lightweight RTL-SDR Receiver");
-        stage.setOnCloseRequest(e -> sdr.stop());
+        stage.setOnCloseRequest(e -> {
+            scanner.stop();
+            sdr.stop();
+        });
         stage.show();
 
         startRenderLoop();
@@ -182,6 +199,9 @@ public final class MainController {
 
         tuneBtn = new Button("Tune");
         tuneBtn.setOnAction(e -> applyFrequency());
+
+        scanBtn = new ToggleButton("Scan");
+        scanBtn.setOnAction(e -> toggleScan());
 
         rateBox = new ComboBox<>();
         rateBox.getItems().addAll(250000, 1024000, 1536000, 1800000, 2048000, 2400000, 2560000, 3200000);
@@ -263,8 +283,10 @@ public final class MainController {
         hosts.setOnAction(e -> showHostsDialog());
         MenuItem settings = new MenuItem("Settings…");
         settings.setOnAction(e -> showSettingsDialog());
+        MenuItem scan = new MenuItem("Scan…");
+        scan.setOnAction(e -> showScanDialog());
         Menu edit = new Menu("Edit");
-        edit.getItems().addAll(frequencies, hosts, new SeparatorMenuItem(), settings);
+        edit.getItems().addAll(frequencies, hosts, new SeparatorMenuItem(), settings, new SeparatorMenuItem(), scan);
 
         RadioMenuItem tbHorizontal = new RadioMenuItem("Horizontal");
         RadioMenuItem tbVertical = new RadioMenuItem("Vertical");
@@ -317,12 +339,12 @@ public final class MainController {
         freqCombo.setPrefWidth(130);
         hostCombo.setPrefWidth(110);
 
-        FlowPane bar = new FlowPane(8, 8,
+        HBox bar = new HBox(8,
                 labeled("Source", sourceBox),
                 labeled("Host", hostCombo),
                 labeled("Port", portField),
                 bottomAlign(connectBtn),
-                labeledBold("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
+                labeledBold("Freq (MHz)", freqCombo), bottomAlign(tuneBtn), bottomAlign(scanBtn),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
@@ -331,9 +353,17 @@ public final class MainController {
                 bottomAlign(audioBtn));
         bar.setPadding(new Insets(8));
         bar.setAlignment(Pos.BOTTOM_LEFT);
-        bar.setRowValignment(VPos.BOTTOM);
-        bar.setStyle("-fx-background-color: #11151f; -fx-border-color: #1d2230; -fx-border-width: 0 0 1 0;");
-        return bar;
+        bar.setStyle("-fx-background-color: #11151f;");
+
+        // A horizontal scrollbar (rather than wrapping to a second row) keeps every
+        // control on one level regardless of window width.
+        ScrollPane scroll = new ScrollPane(bar);
+        scroll.setFitToHeight(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setStyle("-fx-background-color: #11151f; -fx-background: #11151f;"
+                + " -fx-border-color: #1d2230; -fx-border-width: 0 0 1 0;");
+        return scroll;
     }
 
     private Node buildVerticalToolbar() {
@@ -350,6 +380,7 @@ public final class MainController {
                 toolbarDivider(),
                 labeledBold("Freq (MHz)", freqCombo),
                 bottomAlign(tuneBtn),
+                bottomAlign(scanBtn),
                 toolbarDivider(),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
@@ -411,6 +442,7 @@ public final class MainController {
     private void applyFrequency() {
         try {
             double mhz = Double.parseDouble(freqCombo.getEditor().getText().trim());
+            stopScanIfActive();
             sdr.setCenterFrequency((long) (mhz * 1e6));
         } catch (NumberFormatException ignored) {
             // leave the previous frequency in place
@@ -586,10 +618,43 @@ public final class MainController {
                 statusLabel.setText("Connect failed: " + ex.getMessage());
             }
         } else {
+            stopScanIfActive();
             sdr.stop();
             connectBtn.setText("Connect");
             setControlsConnected(false);
             statusLabel.setText("Stopped.");
+        }
+    }
+
+    private void toggleScan() {
+        if (scanBtn.isSelected()) {
+            if (!sdr.isRunning()) {
+                scanBtn.setSelected(false);
+                statusLabel.setText("Connect to a source before scanning.");
+                return;
+            }
+            scanner.start();
+            updateScanControls(true);
+            statusLabel.setText(String.format("Scanning %.1f–%.1f MHz…",
+                    scanner.getStartFrequency() / 1e6, scanner.getStopFrequency() / 1e6));
+        } else {
+            scanner.stop();
+            updateScanControls(false);
+            statusLabel.setText("Scan stopped.");
+        }
+    }
+
+    private void updateScanControls(boolean scanningOn) {
+        scanBtn.setStyle(scanningOn ? "-fx-base: #2ecfa1;" : "");
+        freqCombo.setDisable(scanningOn);
+        tuneBtn.setDisable(scanningOn);
+    }
+
+    private void stopScanIfActive() {
+        if (scanner.isScanning()) {
+            scanner.stop();
+            scanBtn.setSelected(false);
+            updateScanControls(false);
         }
     }
 
@@ -669,7 +734,7 @@ public final class MainController {
         Label tagline = new Label("Lightweight RTL-SDR Receiver · Spring Boot + JavaFX");
         tagline.setTextFill(Color.web("#9aa3b5"));
 
-        Label version = new Label("Version 1.0.4");
+        Label version = new Label("Version 1.0.5");
         version.setTextFill(Color.web("#7f8aa0"));
 
         Label copyright = new Label("Copyright © 2026 Tauasa Timoteo");
@@ -864,6 +929,98 @@ public final class MainController {
         content.setStyle("-fx-background-color: #0b0e14;");
 
         dialog.setScene(new Scene(content, 440, 420));
+        dialog.showAndWait();
+    }
+
+    // ---- Edit > Scan ----
+
+    private void showScanDialog() {
+        Stage dialog = newModalStage("Scan Settings");
+
+        Label header = new Label("Frequency Scan");
+        header.setFont(Font.font("System", FontWeight.BOLD, 14));
+        header.setTextFill(Color.web("#e6ecf5"));
+
+        TextField startField = new TextField(String.format("%.4f", scanner.getStartFrequency() / 1e6));
+        TextField stopField = new TextField(String.format("%.4f", scanner.getStopFrequency() / 1e6));
+        TextField stepField = new TextField(String.format("%.1f", scanner.getStepHz() / 1e3));
+        TextField thresholdField = new TextField(String.format("%.1f", scanner.getThresholdDb()));
+        TextField settleField = new TextField(Long.toString(scanner.getSettleMs()));
+        TextField lingerField = new TextField(String.format("%.1f", scanner.getLingerMs() / 1000.0));
+        for (TextField tf : new TextField[] {startField, stopField, stepField, thresholdField, settleField, lingerField}) {
+            tf.setPrefWidth(110);
+        }
+
+        CheckBox loopBox = new CheckBox("Loop continuously");
+        loopBox.setSelected(scanner.isLoop());
+        loopBox.setTextFill(Color.web("#c7cedb"));
+
+        Label error = new Label(" ");
+        error.setTextFill(Color.web("#ff6b6b"));
+        error.setWrapText(true);
+
+        Button apply = new Button("Apply");
+        apply.setOnAction(e -> {
+            try {
+                long start = Math.round(Double.parseDouble(startField.getText().trim()) * 1e6);
+                long stop = Math.round(Double.parseDouble(stopField.getText().trim()) * 1e6);
+                long step = Math.round(Double.parseDouble(stepField.getText().trim()) * 1e3);
+                double threshold = Double.parseDouble(thresholdField.getText().trim());
+                long settle = Long.parseLong(settleField.getText().trim());
+                long linger = Math.round(Double.parseDouble(lingerField.getText().trim()) * 1000);
+                if (stop <= start) {
+                    error.setText("Stop frequency must be greater than start frequency.");
+                    return;
+                }
+                if (step <= 0) {
+                    error.setText("Step must be greater than zero.");
+                    return;
+                }
+                scanner.setStartFrequency(start);
+                scanner.setStopFrequency(stop);
+                scanner.setStepHz(step);
+                scanner.setThresholdDb(threshold);
+                scanner.setSettleMs(settle);
+                scanner.setLingerMs(linger);
+                scanner.setLoop(loopBox.isSelected());
+                error.setText(" ");
+            } catch (NumberFormatException ex) {
+                error.setText("Enter valid numbers in every field.");
+            }
+        });
+
+        Button reset = new Button("Reset to defaults");
+        reset.setOnAction(e -> {
+            startField.setText(String.format("%.4f", props.getScanStartFrequency() / 1e6));
+            stopField.setText(String.format("%.4f", props.getScanStopFrequency() / 1e6));
+            stepField.setText(String.format("%.1f", props.getScanStepHz() / 1e3));
+            thresholdField.setText(String.format("%.1f", props.getScanThresholdDb()));
+            settleField.setText(Long.toString(props.getScanSettleMs()));
+            lingerField.setText(String.format("%.1f", props.getScanLingerMs() / 1000.0));
+            loopBox.setSelected(props.isScanLoop());
+            apply.fire();
+        });
+
+        Button close = new Button("Close");
+        close.setOnAction(e -> dialog.close());
+        HBox buttons = new HBox(8, reset, apply, close);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox content = new VBox(10,
+                header,
+                settingRow("Start freq (MHz)", startField),
+                settingRow("Stop freq (MHz)", stopField),
+                settingRow("Step (kHz)", stepField),
+                settingRow("Threshold (dB)", thresholdField),
+                settingRow("Settle time (ms)", settleField),
+                settingRow("Linger time (s)", lingerField),
+                settingRow("", loopBox),
+                error,
+                spacer(4), buttons);
+        content.setPadding(new Insets(18));
+        content.setStyle("-fx-background-color: #0b0e14;");
+
+        dialog.setScene(new Scene(content, 380, 460));
         dialog.showAndWait();
     }
 
