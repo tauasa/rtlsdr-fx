@@ -158,6 +158,10 @@ public class SdrService {
         }
     }
 
+    public long getCenterFrequency() {
+        return centerFreq;
+    }
+
     public void setSampleRate(int sps) {
         this.sampleRate = sps;
         demod.configure(sps);

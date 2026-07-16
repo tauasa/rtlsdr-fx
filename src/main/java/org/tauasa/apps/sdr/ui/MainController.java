@@ -84,7 +84,6 @@ public final class MainController {
     private ComboBox<String> hostCombo;
     private TextField portField;
     private ComboBox<String> freqCombo;
-    private Button tuneBtn;
     private ComboBox<Integer> rateBox;
     private CheckBox autoGain;
     private Slider gainSlider;
@@ -115,6 +114,7 @@ public final class MainController {
             sdr.setCenterFrequency(freq);
             freqCombo.getEditor().setText(String.format("%.4f", freq / 1e6));
         });
+        spectrumView.setOnSpectrumClicked(this::toggleScanPause);
         waterfallView = new WaterfallView(sdr.fftSize(), props.getWaterfallHeight(),
                 props.getMinDb(), props.getMaxDb());
 
@@ -196,9 +196,6 @@ public final class MainController {
             if (freqCombo.getValue() != null) applyFrequency();
         });
         loadSavedFrequencies();
-
-        tuneBtn = new Button("Tune");
-        tuneBtn.setOnAction(e -> applyFrequency());
 
         scanBtn = new ToggleButton("Scan");
         scanBtn.setOnAction(e -> toggleScan());
@@ -344,11 +341,15 @@ public final class MainController {
                 labeled("Host", hostCombo),
                 labeled("Port", portField),
                 bottomAlign(connectBtn),
-                labeledBold("Freq (MHz)", freqCombo), bottomAlign(tuneBtn), bottomAlign(scanBtn),
+                toolbarDividerVertical(),
+                labeledBold("Freq (MHz)", freqCombo), bottomAlign(scanBtn),
+                toolbarDividerVertical(),
                 labeled("Rate (sps)", rateBox),
                 bottomAlign(autoGain),
                 labeled("Gain (dB)", gainSlider),
+                toolbarDividerVertical(),
                 labeled("Mode", modeBox),
+                toolbarDividerVertical(),
                 labeled("Vol", volumeSlider),
                 bottomAlign(audioBtn));
         bar.setPadding(new Insets(8));
@@ -379,7 +380,6 @@ public final class MainController {
                 bottomAlign(connectBtn),
                 toolbarDivider(),
                 labeledBold("Freq (MHz)", freqCombo),
-                bottomAlign(tuneBtn),
                 bottomAlign(scanBtn),
                 toolbarDivider(),
                 labeled("Rate (sps)", rateBox),
@@ -420,6 +420,16 @@ public final class MainController {
         divider.setMinHeight(1);
         divider.setPrefHeight(1);
         divider.setMaxHeight(1);
+        divider.setStyle("-fx-background-color: #5b6b91;");
+        return divider;
+    }
+
+    private Region toolbarDividerVertical() {
+        Region divider = new Region();
+        divider.setMinWidth(1);
+        divider.setPrefWidth(1);
+        divider.setMaxWidth(1);
+        divider.setMaxHeight(Double.MAX_VALUE);
         divider.setStyle("-fx-background-color: #5b6b91;");
         return divider;
     }
@@ -644,10 +654,29 @@ public final class MainController {
         }
     }
 
+    /** Single-click anywhere on the spectrum during a scan: pause in place, click again to resume. */
+    private void toggleScanPause() {
+        if (!scanner.isScanning()) {
+            return;
+        }
+        if (scanner.isPaused()) {
+            scanner.resume();
+            statusLabel.setText("Scan resumed.");
+        } else {
+            scanner.pause();
+            SpectrumFrame f = latest.get();
+            if (f != null) {
+                freqCombo.getEditor().setText(String.format("%.4f", f.centerFrequency() / 1e6));
+                statusLabel.setText(String.format("Scan paused at %.4f MHz — click spectrum to resume.",
+                        f.centerFrequency() / 1e6));
+            }
+        }
+    }
+
     private void updateScanControls(boolean scanningOn) {
         scanBtn.setStyle(scanningOn ? "-fx-base: #2ecfa1;" : "");
         freqCombo.setDisable(scanningOn);
-        tuneBtn.setDisable(scanningOn);
+        spectrumView.setScanning(scanningOn);
     }
 
     private void stopScanIfActive() {

@@ -38,6 +38,8 @@ public final class Scanner {
     private final AtomicReference<SpectrumFrame> latestFrame = new AtomicReference<>();
     private volatile Thread scanThread;
     private volatile boolean scanning;
+    private volatile boolean paused;
+    private final Object pauseMonitor = new Object();
 
     private volatile LongConsumer onTune = f -> { };
     private volatile LongConsumer onDetect = f -> { };
@@ -71,11 +73,16 @@ public final class Scanner {
         return scanning;
     }
 
+    public boolean isPaused() {
+        return paused;
+    }
+
     public synchronized void start() {
         if (scanning) {
             return;
         }
         scanning = true;
+        paused = false;
         latestFrame.set(null);
         Thread t = new Thread(this::runLoop, "scanner");
         t.setDaemon(true);
@@ -85,17 +92,46 @@ public final class Scanner {
 
     public synchronized void stop() {
         scanning = false;
+        paused = false;
         Thread t = scanThread;
         scanThread = null;
         if (t != null) {
             t.interrupt();
         }
+        wakePaused();
+    }
+
+    /** Halts the sweep in place — the tuner stays parked on the current frequency until {@link #resume()}. */
+    public void pause() {
+        paused = true;
+    }
+
+    /** Continues the sweep from wherever it was paused. */
+    public void resume() {
+        paused = false;
+        wakePaused();
+    }
+
+    private void wakePaused() {
+        synchronized (pauseMonitor) {
+            pauseMonitor.notifyAll();
+        }
     }
 
     private void runLoop() {
-        long freq = startFrequency;
+        long freq = sdr.getCenterFrequency();
         try {
             while (scanning) {
+                if (paused) {
+                    synchronized (pauseMonitor) {
+                        while (paused && scanning) {
+                            pauseMonitor.wait();
+                        }
+                    }
+                    if (!scanning) {
+                        break;
+                    }
+                }
                 latestFrame.set(null);
                 sdr.setCenterFrequency(freq);
                 onTune.accept(freq);
@@ -123,6 +159,7 @@ public final class Scanner {
             Thread.currentThread().interrupt();
         } finally {
             scanning = false;
+            paused = false;
             onStopped.run();
         }
     }
