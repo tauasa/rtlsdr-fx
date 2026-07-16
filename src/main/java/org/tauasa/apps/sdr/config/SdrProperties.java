@@ -25,6 +25,15 @@ public class SdrProperties {
     private double cwPitch = 700;      // CW sidetone / BFO pitch (Hz)
     private double cwBandwidth = 300;  // CW filter bandwidth (Hz)
 
+    // Scan (search) settings — sweeps the tunable range looking for transmissions.
+    private long scanStartFrequency = 24_000_000L;    // 24 MHz — bottom of the typical R820T2 tuning range
+    private long scanStopFrequency = 1_766_000_000L;  // 1766 MHz — top of the typical R820T2 tuning range
+    private long scanStepHz = 200_000L;               // retune step between capture windows (Hz)
+    private double scanThresholdDb = 12.0;             // peak-above-noise-floor needed to call it a "hit" (dB)
+    private long scanSettleMs = 150;                   // time to let the tuner/spectrum settle before measuring
+    private long scanLingerMs = 2000;                  // dwell time on a detected signal before resuming (ms)
+    private boolean scanLoop = true;                   // wrap back to the start frequency at the end of the range
+
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }
 
@@ -72,4 +81,25 @@ public class SdrProperties {
 
     public double getCwBandwidth() { return cwBandwidth; }
     public void setCwBandwidth(double cwBandwidth) { this.cwBandwidth = cwBandwidth; }
+
+    public long getScanStartFrequency() { return scanStartFrequency; }
+    public void setScanStartFrequency(long scanStartFrequency) { this.scanStartFrequency = scanStartFrequency; }
+
+    public long getScanStopFrequency() { return scanStopFrequency; }
+    public void setScanStopFrequency(long scanStopFrequency) { this.scanStopFrequency = scanStopFrequency; }
+
+    public long getScanStepHz() { return scanStepHz; }
+    public void setScanStepHz(long scanStepHz) { this.scanStepHz = scanStepHz; }
+
+    public double getScanThresholdDb() { return scanThresholdDb; }
+    public void setScanThresholdDb(double scanThresholdDb) { this.scanThresholdDb = scanThresholdDb; }
+
+    public long getScanSettleMs() { return scanSettleMs; }
+    public void setScanSettleMs(long scanSettleMs) { this.scanSettleMs = scanSettleMs; }
+
+    public long getScanLingerMs() { return scanLingerMs; }
+    public void setScanLingerMs(long scanLingerMs) { this.scanLingerMs = scanLingerMs; }
+
+    public boolean isScanLoop() { return scanLoop; }
+    public void setScanLoop(boolean scanLoop) { this.scanLoop = scanLoop; }
 }

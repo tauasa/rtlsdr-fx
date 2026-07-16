@@ -33,6 +33,7 @@ public class SdrService {
 
     private volatile SignalSource source;
     private volatile Consumer<SpectrumFrame> sink = frame -> { };
+    private volatile Consumer<SpectrumFrame> scanListener;
 
     private volatile long centerFreq;
     private volatile int sampleRate;
@@ -75,6 +76,11 @@ public class SdrService {
 
     public void setFrameSink(Consumer<SpectrumFrame> sink) {
         this.sink = sink;
+    }
+
+    /** Registers (or clears, via {@code null}) an additional frame observer used by the {@link org.tauasa.apps.sdr.scan.Scanner}. */
+    public void setScanListener(Consumer<SpectrumFrame> scanListener) {
+        this.scanListener = scanListener;
     }
 
     public synchronized void startRtl(String host, int port) throws Exception {
@@ -128,7 +134,12 @@ public class SdrService {
         }
         lastFrameNs = now;
         float[] power = processor.process(iq);
-        sink.accept(new SpectrumFrame(power, centerFreq, sampleRate, processor.size(), seq.incrementAndGet()));
+        SpectrumFrame frame = new SpectrumFrame(power, centerFreq, sampleRate, processor.size(), seq.incrementAndGet());
+        sink.accept(frame);
+        Consumer<SpectrumFrame> sl = scanListener;
+        if (sl != null) {
+            sl.accept(frame);
+        }
     }
 
     public synchronized void stop() {
@@ -145,6 +156,10 @@ public class SdrService {
         if (s != null) {
             s.setCenterFrequency(hz);
         }
+    }
+
+    public long getCenterFrequency() {
+        return centerFreq;
     }
 
     public void setSampleRate(int sps) {
