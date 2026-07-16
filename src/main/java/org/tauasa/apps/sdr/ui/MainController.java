@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.context.event.EventListener;
@@ -80,7 +81,7 @@ public final class MainController {
 
     private final ToggleButton connectBtn = new ToggleButton("Connect");
     private ComboBox<String> sourceBox;
-    private TextField hostField;
+    private ComboBox<String> hostCombo;
     private TextField portField;
     private ComboBox<String> freqCombo;
     private Button tuneBtn;
@@ -144,6 +145,9 @@ public final class MainController {
         stage.show();
 
         startRenderLoop();
+
+        connectBtn.setSelected(true);
+        toggleConnect();
     }
 
     private void initToolbarControls() {
@@ -157,8 +161,12 @@ public final class MainController {
             }
         });
 
-        hostField = new TextField(props.getHost());
-        hostField.setPrefWidth(110);
+        hostCombo = new ComboBox<>();
+        hostCombo.setEditable(true);
+        hostCombo.setPrefWidth(110);
+        hostCombo.getEditor().setText(props.getHost());
+        loadSavedHosts();
+
         portField = new TextField(Integer.toString(props.getPort()));
         portField.setPrefWidth(60);
 
@@ -217,6 +225,8 @@ public final class MainController {
         updateAudioControls(false);
 
         connectBtn.setOnAction(e -> toggleConnect());
+
+        applyLastConnection();
     }
 
     private Node buildMenuRow() {
@@ -237,20 +247,24 @@ public final class MainController {
     private MenuBar buildMenuBar() {
         MenuItem saveFreq = new MenuItem("Save Current Freq");
         saveFreq.setOnAction(e -> saveCurrentFrequency());
+        MenuItem saveHost = new MenuItem("Save Current Host");
+        saveHost.setOnAction(e -> saveCurrentHost());
         MenuItem exit = new MenuItem("Exit");
         exit.setOnAction(e -> {
             sdr.stop();
             Platform.exit();
         });
         Menu file = new Menu("File");
-        file.getItems().addAll(saveFreq, new SeparatorMenuItem(), exit);
+        file.getItems().addAll(saveFreq, saveHost, new SeparatorMenuItem(), exit);
 
         MenuItem frequencies = new MenuItem("Frequencies…");
         frequencies.setOnAction(e -> showFrequenciesDialog());
+        MenuItem hosts = new MenuItem("Hosts…");
+        hosts.setOnAction(e -> showHostsDialog());
         MenuItem settings = new MenuItem("Settings…");
         settings.setOnAction(e -> showSettingsDialog());
         Menu edit = new Menu("Edit");
-        edit.getItems().addAll(frequencies, settings);
+        edit.getItems().addAll(frequencies, hosts, new SeparatorMenuItem(), settings);
 
         RadioMenuItem tbHorizontal = new RadioMenuItem("Horizontal");
         RadioMenuItem tbVertical = new RadioMenuItem("Vertical");
@@ -301,11 +315,11 @@ public final class MainController {
         gainSlider.setPrefWidth(140);
         volumeSlider.setPrefWidth(90);
         freqCombo.setPrefWidth(130);
-        hostField.setPrefWidth(110);
+        hostCombo.setPrefWidth(110);
 
         FlowPane bar = new FlowPane(8, 8,
                 labeled("Source", sourceBox),
-                labeled("Host", hostField),
+                labeled("Host", hostCombo),
                 labeled("Port", portField),
                 bottomAlign(connectBtn),
                 labeledBold("Freq (MHz)", freqCombo), bottomAlign(tuneBtn),
@@ -326,11 +340,11 @@ public final class MainController {
         gainSlider.setPrefWidth(130);
         volumeSlider.setPrefWidth(130);
         freqCombo.setPrefWidth(120);
-        hostField.setPrefWidth(120);
+        hostCombo.setPrefWidth(120);
 
         VBox bar = new VBox(6,
                 labeled("Source", sourceBox),
-                labeled("Host", hostField),
+                labeled("Host", hostCombo),
                 labeled("Port", portField),
                 bottomAlign(connectBtn),
                 toolbarDivider(),
@@ -358,14 +372,14 @@ public final class MainController {
 
     private VBox labeled(String text, Node node) {
         Label l = new Label(text);
-        l.setTextFill(Color.web("#7f8aa0"));
+        l.setTextFill(Color.WHITE);
         l.setStyle("-fx-font-size: 10;");
         return new VBox(2, l, node);
     }
 
     private VBox labeledBold(String text, Node node) {
         Label l = new Label(text);
-        l.setTextFill(Color.web("#7f8aa0"));
+        l.setTextFill(Color.WHITE);
         l.setStyle("-fx-font-size: 10; -fx-font-weight: bold;");
         return new VBox(2, l, node);
     }
@@ -456,6 +470,96 @@ public final class MainController {
         }
     }
 
+    private static final Path HOST_FILE =
+            Path.of(System.getProperty("user.home"), ".rtlsdr-fx", "hosts.txt");
+
+    private void saveCurrentHost() {
+        String entry = hostCombo.getEditor().getText().trim();
+        if (entry.isEmpty()) {
+            statusLabel.setText("Cannot save: host is empty.");
+            return;
+        }
+        try {
+            Files.createDirectories(HOST_FILE.getParent());
+            List<String> lines = Files.exists(HOST_FILE)
+                    ? new ArrayList<>(Files.readAllLines(HOST_FILE))
+                    : new ArrayList<>();
+            if (!lines.contains(entry)) {
+                lines.add(entry);
+                lines.sort(Comparator.naturalOrder());
+                Files.write(HOST_FILE, lines);
+            }
+            loadSavedHosts();
+            statusLabel.setText("Saved host " + entry + ".");
+        } catch (IOException e) {
+            statusLabel.setText("Cannot save host: " + e.getMessage());
+        }
+    }
+
+    private void loadSavedHosts() {
+        List<String> saved = new ArrayList<>();
+        if (Files.exists(HOST_FILE)) {
+            try {
+                saved = new ArrayList<>(Files.readAllLines(HOST_FILE));
+            } catch (IOException ignored) {}
+        }
+        saved.sort(Comparator.naturalOrder());
+        String current = hostCombo.getEditor().getText();
+        hostCombo.getItems().setAll(saved);
+        hostCombo.getEditor().setText(current);
+    }
+
+    private void removeSavedHost(String entry) {
+        try {
+            if (!Files.exists(HOST_FILE)) {
+                return;
+            }
+            List<String> lines = new ArrayList<>(Files.readAllLines(HOST_FILE));
+            lines.remove(entry);
+            Files.write(HOST_FILE, lines);
+            loadSavedHosts();
+        } catch (IOException e) {
+            statusLabel.setText("Cannot remove host: " + e.getMessage());
+        }
+    }
+
+    private static final Path LAST_CONNECTION_FILE =
+            Path.of(System.getProperty("user.home"), ".rtlsdr-fx", "last-connection.properties");
+
+    private void saveLastConnection() {
+        try {
+            Files.createDirectories(LAST_CONNECTION_FILE.getParent());
+            Properties p = new Properties();
+            p.setProperty("source", sourceBox.getValue());
+            p.setProperty("host", hostCombo.getEditor().getText().trim());
+            p.setProperty("port", portField.getText().trim());
+            try (var out = Files.newOutputStream(LAST_CONNECTION_FILE)) {
+                p.store(out, "Last used connection");
+            }
+        } catch (IOException ignored) {}
+    }
+
+    private void applyLastConnection() {
+        Properties p = new Properties();
+        if (Files.exists(LAST_CONNECTION_FILE)) {
+            try (var in = Files.newInputStream(LAST_CONNECTION_FILE)) {
+                p.load(in);
+            } catch (IOException ignored) {}
+        }
+        String source = p.getProperty("source");
+        if (source != null && sourceBox.getItems().contains(source)) {
+            sourceBox.getSelectionModel().select(source);
+        }
+        String host = p.getProperty("host");
+        if (host != null && !host.isEmpty()) {
+            hostCombo.getEditor().setText(host);
+        }
+        String port = p.getProperty("port");
+        if (port != null && !port.isEmpty()) {
+            portField.setText(port);
+        }
+    }
+
     private void toggleConnect() {
         if (connectBtn.isSelected()) {
             try {
@@ -465,7 +569,7 @@ public final class MainController {
                     sdr.setSampleRate(r);
                 }
                 if ("RTL-TCP".equals(sourceBox.getValue())) {
-                    sdr.startRtl(hostField.getText().trim(), Integer.parseInt(portField.getText().trim()));
+                    sdr.startRtl(hostCombo.getEditor().getText().trim(), Integer.parseInt(portField.getText().trim()));
                 } else if ("Simulated (CW)".equals(sourceBox.getValue())) {
                     sdr.startSimulatedCw();
                 } else {
@@ -476,6 +580,7 @@ public final class MainController {
                 }
                 connectBtn.setText("Disconnect");
                 setControlsConnected(true);
+                saveLastConnection();
             } catch (Exception ex) {
                 connectBtn.setSelected(false);
                 statusLabel.setText("Connect failed: " + ex.getMessage());
@@ -490,8 +595,9 @@ public final class MainController {
 
     private void setControlsConnected(boolean connected) {
         sourceBox.setDisable(connected);
-        hostField.setDisable(connected);
+        hostCombo.setDisable(connected);
         portField.setDisable(connected);
+        connectBtn.setStyle(connected ? "-fx-base: #2ecfa1;" : "");
     }
 
     private void toggleAudio() {
@@ -563,7 +669,7 @@ public final class MainController {
         Label tagline = new Label("Lightweight RTL-SDR Receiver · Spring Boot + JavaFX");
         tagline.setTextFill(Color.web("#9aa3b5"));
 
-        Label version = new Label("Version 1.0.3");
+        Label version = new Label("Version 1.0.4");
         version.setTextFill(Color.web("#7f8aa0"));
 
         Label copyright = new Label("Copyright © 2026 Tauasa Timoteo");
@@ -614,6 +720,44 @@ public final class MainController {
             if (selected != null) {
                 removeSavedFrequency(selected);
                 list.getItems().setAll(freqCombo.getItems());
+            }
+        });
+        list.getSelectionModel().selectedItemProperty().addListener(
+                (o, a, b) -> remove.setDisable(b == null));
+
+        Button close = new Button("Close");
+        close.setOnAction(e -> dialog.close());
+        HBox buttons = new HBox(8, remove, close);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox content = new VBox(10, header, list, buttons);
+        content.setPadding(new Insets(18));
+        content.setStyle("-fx-background-color: #0b0e14;");
+
+        dialog.setScene(new Scene(content, 320, 360));
+        dialog.showAndWait();
+    }
+
+    // ---- Edit > Hosts ----
+
+    private void showHostsDialog() {
+        Stage dialog = newModalStage("Hosts");
+
+        Label header = new Label("Saved Hosts");
+        header.setFont(Font.font("System", FontWeight.BOLD, 14));
+        header.setTextFill(Color.web("#e6ecf5"));
+
+        ListView<String> list = new ListView<>();
+        list.getItems().setAll(hostCombo.getItems());
+        list.setPrefHeight(240);
+
+        Button remove = new Button("Remove Selected");
+        remove.setDisable(true);
+        remove.setOnAction(e -> {
+            String selected = list.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                removeSavedHost(selected);
+                list.getItems().setAll(hostCombo.getItems());
             }
         });
         list.getSelectionModel().selectedItemProperty().addListener(
