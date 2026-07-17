@@ -1,6 +1,6 @@
 # rtlsdr-fx
 
-A lightweight RTL-SDR receiver with live **spectrum** (waveform) and **waterfall** displays — a small, self-contained alternative to SDR++ built on **Spring Boot + JavaFX**.
+A lightweight RTL-SDR receiver with live **spectrum** (waveform) and **waterfall** displays — a small, self-contained application built on **Spring Boot + JavaFX**.
 
 It connects to a standard `rtl_tcp` server over TCP (no native libraries / no JNA), and also ships with a built-in **simulated source** so you can run and explore the whole UI with **no hardware at all**.
 
