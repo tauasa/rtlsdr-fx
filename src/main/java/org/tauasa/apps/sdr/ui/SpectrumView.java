@@ -19,7 +19,7 @@ public final class SpectrumView {
     /** Press/release moves less than this many pixels count as a click, not a drag. */
     private static final double CLICK_MOVE_THRESHOLD = 3;
     /** Compresses the trace/peak curves toward the bottom so they swing less tall, without affecting the dB grid. */
-    private static final double TRACE_VERTICAL_SCALE = 0.6;
+    private static final double TRACE_VERTICAL_SCALE = 0.8;
 
     private static final Font AXIS_FONT = Font.font(10);
     /** Used for the marker label and the bottom frequency labels while a scan is running. */
